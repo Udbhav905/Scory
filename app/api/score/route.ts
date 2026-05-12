@@ -1,114 +1,206 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { query } from "@/app/lib/db";
+import { query } from "@/app/lib/db";   
 
-// Helper to update innings totals
-// async function updateInningsTotals(inningsId: number) {
-//   const result = await query(
-//     `SELECT SUM(runs + extra_runs) as total_runs, COUNT(CASE WHEN is_wicket THEN 1 END) as total_wickets,
-//             MAX(over_number) + (SELECT MAX(ball_number)/6.0 ... ) -- simplified: we'll compute overs separately
-//      FROM ball_events WHERE innings_id = $1`,
-//     [inningsId],
-//   );
-//   // For simplicity, we'll recalculate runs/wickets from ball_events
-//   const runsRes = await query(
-//     `SELECT COALESCE(SUM(runs + extra_runs), 0) as runs,
-//             COALESCE(SUM(CASE WHEN is_wicket THEN 1 ELSE 0 END), 0) as wickets
-//      FROM ball_events WHERE innings_id = $1`,
-//     [inningsId],
-//   );
-//   //   const oversRes = await query(
-//   //     `SELECT COUNT(DISTINCT over_number) - 1 + (MAX(ball_number)/6.0) as overs
-//   //      FROM ball_events WHERE innings_id = $1`,
-//   //     [inningsId]
-//   //   );
-//   const oversRes = await query(
-//     `SELECT COALESCE(CAST(COUNT(DISTINCT over_number) - 1 + (MAX(ball_number)/6.0) AS DECIMAL(5,2)), 0) as overs
-//    FROM ball_events WHERE innings_id = $1`,
-//     [inningsId],
-//   );
-//   const overs = parseFloat(oversRes.rows[0].overs);
-//   const runs = runsRes.rows[0].runs;
-//   const wickets = runsRes.rows[0].wickets;
-//   //   const overs = oversRes.rows[0].overs || 0;
-//   await query(`UPDATE innings SET total_runs = $1, total_wickets = $2, overs = $3 WHERE id = $4`, [runs, wickets, overs, inningsId]);
-// }
 async function updateInningsTotals(inningsId: number) {
-  // Calculate runs and wickets
+  // If no balls, reset all
+  const ballCount = await query(
+    "SELECT COUNT(*) as count FROM ball_events WHERE innings_id = $1",
+    [inningsId]
+  );
+  if (ballCount.rows[0].count === 0) {
+    await query(
+      "UPDATE innings SET total_runs = 0, total_wickets = 0, overs = 0 WHERE id = $1",
+      [inningsId]
+    );
+    return;
+  }
+
+  // Total runs & wickets
   const runsRes = await query(
     `SELECT COALESCE(SUM(runs + extra_runs), 0) as runs,
             COALESCE(SUM(CASE WHEN is_wicket THEN 1 ELSE 0 END), 0) as wickets
      FROM ball_events WHERE innings_id = $1`,
     [inningsId]
   );
-  // Calculate overs: (max over number - 1) + (max ball number / 6)
+
+  // Total overs = total legal deliveries / 6
   const oversRes = await query(
-    `SELECT 
-       COALESCE(
-         MAX(over_number) - 1 + (MAX(ball_number)::numeric / 6),
-         0
-       ) as overs
-     FROM ball_events WHERE innings_id = $1`,
+    `SELECT COUNT(*) as legal_deliveries
+     FROM ball_events 
+     WHERE innings_id = $1 
+       AND (extra_type IS NULL OR extra_type NOT IN ('wide', 'no ball'))`,
     [inningsId]
   );
-  const runs = runsRes.rows[0].runs;
-  const wickets = runsRes.rows[0].wickets;
-  const overs = parseFloat(oversRes.rows[0].overs) || 0;
+  const legalDeliveries = parseInt(oversRes.rows[0].legal_deliveries, 10);
+  const overs = legalDeliveries / 6;   // → e.g., 5 deliveries → 0.8333
+
   await query(
-    `UPDATE innings SET total_runs = $1, total_wickets = $2, overs = $3 WHERE id = $4`,
-    [runs, wickets, overs, inningsId]
+    `UPDATE innings 
+     SET total_runs = $1, total_wickets = $2, overs = $3 
+     WHERE id = $4`,
+    [runsRes.rows[0].runs, runsRes.rows[0].wickets, overs, inningsId]
   );
 }
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { innings_id, over_number, ball_number, batsman_id, bowler_id, runs, is_wicket, wicket_type, extra_type, extra_runs } = await request.json();
+
   if (!innings_id || over_number === undefined || ball_number === undefined) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
-  if (!session?.user?.email) {
-    throw new Error("Unauthorized");
+
+  // Sanitise runs – ensure non-negative numbers
+  const safeRuns = Math.max(0, runs || 0);
+  const safeExtraRuns = Math.max(0, extra_runs || 0);
+if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  // Verify ownership through innings->match->tournament->user
+
+  // Verify ownership through innings → match → tournament → user
   const verify = await query(
     `SELECT i.id FROM innings i
      JOIN matches m ON i.match_id = m.id
      JOIN tournaments t ON m.tournament_id = t.id
      WHERE i.id = $1 AND t.user_id = (SELECT id FROM users WHERE email = $2)`,
-    [innings_id, session.user.email],
+    [innings_id, session.user.email]
   );
-  if (verify.rows.length === 0) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
+  if (verify.rows.length === 0) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
 
   await query(
     `INSERT INTO ball_events (innings_id, over_number, ball_number, batsman_id, bowler_id, runs, is_wicket, wicket_type, extra_type, extra_runs)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [innings_id, over_number, ball_number, batsman_id || null, bowler_id || null, runs || 0, is_wicket || false, wicket_type || null, extra_type || null, extra_runs || 0],
+    [
+      innings_id,
+      over_number,
+      ball_number,
+      batsman_id || null,
+      bowler_id || null,
+      safeRuns,
+      is_wicket || false,
+      wicket_type || null,
+      extra_type || null,
+      safeExtraRuns,
+    ]
   );
+
   await updateInningsTotals(innings_id);
+
   return NextResponse.json({ message: "Ball recorded" });
 }
 
 export async function GET(request: Request) {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
 
   const { searchParams } = new URL(request.url);
   const inningsId = searchParams.get("inningsId");
-  if (!inningsId) return NextResponse.json({ error: "inningsId required" }, { status: 400 });
-  if (!session?.user?.email) {
-    throw new Error("Unauthorized");
+  if (!inningsId) {
+    return NextResponse.json({ error: "inningsId required" }, { status: 400 });
   }
+
   const verify = await query(
     `SELECT i.id FROM innings i
      JOIN matches m ON i.match_id = m.id
      JOIN tournaments t ON m.tournament_id = t.id
      WHERE i.id = $1 AND t.user_id = (SELECT id FROM users WHERE email = $2)`,
-    [inningsId, session.user.email],
+    [inningsId, session.user.email]
   );
-  if (verify.rows.length === 0) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
-  const balls = await query("SELECT * FROM ball_events WHERE innings_id = $1 ORDER BY over_number, ball_number", [inningsId]);
+  if (verify.rows.length === 0) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  const balls = await query(
+    "SELECT * FROM ball_events WHERE innings_id = $1 ORDER BY over_number, ball_number",
+    [inningsId]
+  );
+
   return NextResponse.json(balls.rows);
+}
+
+// ... existing imports
+
+export async function DELETE(request: Request) {
+  const session = await auth();
+
+  if (!session) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
+  if (!session?.user?.email) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
+  const { searchParams } = new URL(request.url);
+
+  // Convert to number
+  const inningsId = Number(searchParams.get("inningsId"));
+
+  // Validate
+  if (isNaN(inningsId)) {
+    return NextResponse.json(
+      { error: "Invalid inningsId" },
+      { status: 400 }
+    );
+  }
+
+  // Verify ownership
+  const verify = await query(
+    `SELECT i.id FROM innings i
+     JOIN matches m ON i.match_id = m.id
+     JOIN tournaments t ON m.tournament_id = t.id
+     WHERE i.id = $1 
+     AND t.user_id = (
+       SELECT id FROM users WHERE email = $2
+     )`,
+    [inningsId, session.user.email]
+  );
+
+  if (verify.rows.length === 0) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 403 }
+    );
+  }
+
+  // Delete latest ball
+  await query(
+    `DELETE FROM ball_events
+     WHERE id = (
+       SELECT id
+       FROM ball_events
+       WHERE innings_id = $1
+       ORDER BY over_number DESC, ball_number DESC
+       LIMIT 1
+     )`,
+    [inningsId]
+  );
+
+  // Update totals
+  await updateInningsTotals(inningsId);
+
+  return NextResponse.json({
+    message: "Last ball undone"
+  });
 }

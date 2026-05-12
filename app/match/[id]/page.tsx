@@ -49,7 +49,14 @@ export default function MatchDetailPage() {
 
         {activeTab === "players" && <PlayersManager matchId={parseInt(id as string)} teamA={match.team_a_name} teamB={match.team_b_name} />}
         {activeTab === "toss" && <TossManager matchId={parseInt(id as string)} teamA={match.team_a_name} teamB={match.team_b_name} onTossComplete={() => fetchMatch()} />}
-        {activeTab === "scorecard" && <Scorecard matchId={parseInt(id as string)} />}
+        {activeTab === "scorecard" && (
+          <Scorecard
+            matchId={parseInt(id as string)}
+            teamA={match.team_a_name}
+            teamB={match.team_b_name}
+            totalOvers={match.total_overs || 20}
+          />
+        )}
       </div>
     </div>
   );
