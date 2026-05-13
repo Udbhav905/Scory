@@ -1,32 +1,20 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { query } from "@/app/lib/db";
-
+ 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { searchParams } = new URL(request.url);
   const matchId = searchParams.get("matchId");
   if (!matchId) return NextResponse.json({ error: "matchId required" }, { status: 400 });
 
-  // Verify user owns the tournament of this match
-  if (!session?.user?.email) {
-    throw new Error("Unauthorized");
-  }
-
-  const verify = await query(
-    `SELECT m.id FROM matches m
-   JOIN tournaments t ON m.tournament_id = t.id
-   WHERE m.id = $1 AND t.user_id = (
-     SELECT id FROM users WHERE email = $2
-   )`,
-    [matchId, session.user.email],
-  );
-  if (verify.rows.length === 0) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-
   const players = await query("SELECT * FROM players WHERE match_id = $1", [matchId]);
   return NextResponse.json(players.rows);
+}
+
+// Helper to get user id from session
+async function getUserId(session: any) {
+  const userRes = await query("SELECT id FROM users WHERE email = $1", [session.user.email]);
+  return userRes.rows[0]?.id;
 }
 
 export async function POST(request: Request) {

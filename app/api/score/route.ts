@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { query } from "@/app/lib/db";   
+import { query } from "@/app/lib/db";
+import { pusherServer } from "@/app/lib/pusher";
 
 async function updateInningsTotals(inningsId: number) {
   // If no balls, reset all
@@ -64,7 +65,7 @@ if (!session?.user?.email) {
 
   // Verify ownership through innings → match → tournament → user
   const verify = await query(
-    `SELECT i.id FROM innings i
+    `SELECT i.id, m.id as match_id FROM innings i
      JOIN matches m ON i.match_id = m.id
      JOIN tournaments t ON m.tournament_id = t.id
      WHERE i.id = $1 AND t.user_id = (SELECT id FROM users WHERE email = $2)`,
@@ -94,35 +95,27 @@ if (!session?.user?.email) {
 
   await updateInningsTotals(innings_id);
 
+  // Trigger Pusher event for real-time update
+  const matchId = verify.rows[0].match_id;
+  try {
+    await pusherServer.trigger(`match-${matchId}`, "score-update", {
+      innings_id: innings_id,
+    });
+  } catch (err) {
+    console.error("Pusher trigger failed:", err);
+  }
+
+  // Ensure match status is 'live' if not already
+  await query("UPDATE matches SET status = 'live' WHERE id = $1 AND status != 'completed'", [matchId]);
+
   return NextResponse.json({ message: "Ball recorded" });
 }
 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-
   const { searchParams } = new URL(request.url);
   const inningsId = searchParams.get("inningsId");
   if (!inningsId) {
     return NextResponse.json({ error: "inningsId required" }, { status: 400 });
-  }
-
-  const verify = await query(
-    `SELECT i.id FROM innings i
-     JOIN matches m ON i.match_id = m.id
-     JOIN tournaments t ON m.tournament_id = t.id
-     WHERE i.id = $1 AND t.user_id = (SELECT id FROM users WHERE email = $2)`,
-    [inningsId, session.user.email]
-  );
-
-  if (verify.rows.length === 0) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const balls = await query(
@@ -167,7 +160,7 @@ export async function DELETE(request: Request) {
 
   // Verify ownership
   const verify = await query(
-    `SELECT i.id FROM innings i
+    `SELECT i.id, m.id as match_id FROM innings i
      JOIN matches m ON i.match_id = m.id
      JOIN tournaments t ON m.tournament_id = t.id
      WHERE i.id = $1 
@@ -199,6 +192,16 @@ export async function DELETE(request: Request) {
 
   // Update totals
   await updateInningsTotals(inningsId);
+
+  // Trigger Pusher event
+  const matchId = verify.rows[0].match_id;
+  try {
+    await pusherServer.trigger(`match-${matchId}`, "score-update", {
+      innings_id: inningsId,
+    });
+  } catch (err) {
+    console.error("Pusher trigger failed:", err);
+  }
 
   return NextResponse.json({
     message: "Last ball undone"

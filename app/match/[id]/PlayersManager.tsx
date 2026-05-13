@@ -16,7 +16,7 @@ interface Player {
 const BATTING_STYLES = ["Right-handed", "Left-handed", "Right-handed (Opener)", "Left-handed (Opener)", "Middle-order"];
 const BOWLING_STYLES = ["Right-arm fast", "Left-arm fast", "Right-arm medium", "Left-arm medium", "Right-arm spin", "Left-arm spin", "Leg-spin", "Off-spin"];
 
-export default function PlayersManager({ matchId, teamA, teamB }: { matchId: number; teamA: string; teamB: string }) {
+export default function PlayersManager({ matchId, teamA, teamALogo, teamB, teamBLogo }: { matchId: number; teamA: string; teamALogo?: string; teamB: string; teamBLogo?: string }) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -148,7 +148,10 @@ export default function PlayersManager({ matchId, teamA, teamB }: { matchId: num
         {/* Team A Table */}
         <div className="bg-[#0B1322] border border-[#28396C] rounded-lg overflow-hidden">
           <div className="bg-[#1A253F] px-4 py-3 flex justify-between items-center">
-            <h3 className="text-lg font-bold text-[#B5E18B]">{teamA}</h3>
+            <div className="flex items-center gap-3">
+              {teamALogo && <img src={teamALogo} alt={teamA} className="w-8 h-8 rounded-full object-cover border border-[#28396C]" />}
+              <h3 className="text-lg font-bold text-[#B5E18B]">{teamA}</h3>
+            </div>
             <button onClick={() => { setSelectedTeam("team_a"); setEditingPlayer(null); setFormData({ name: "", role: "batsman", batting_style: "", bowling_style: "", is_captain: false, is_wicketkeeper: false }); setShowForm(true); }} className="px-3 py-1 text-sm bg-[#B5E18B] text-[#1F2A44] font-bold rounded hover:bg-[#c8f0a2]">+ Add Player</button>
           </div>
           <div className="p-3">
@@ -180,7 +183,10 @@ export default function PlayersManager({ matchId, teamA, teamB }: { matchId: num
         {/* Team B Table */}
         <div className="bg-[#0B1322] border border-[#28396C] rounded-lg overflow-hidden">
           <div className="bg-[#1A253F] px-4 py-3 flex justify-between items-center">
-            <h3 className="text-lg font-bold text-[#B5E18B]">{teamB}</h3>
+            <div className="flex items-center gap-3">
+              {teamBLogo && <img src={teamBLogo} alt={teamB} className="w-8 h-8 rounded-full object-cover border border-[#28396C]" />}
+              <h3 className="text-lg font-bold text-[#B5E18B]">{teamB}</h3>
+            </div>
             <button onClick={() => { setSelectedTeam("team_b"); setEditingPlayer(null); setFormData({ name: "", role: "batsman", batting_style: "", bowling_style: "", is_captain: false, is_wicketkeeper: false }); setShowForm(true); }} className="px-3 py-1 text-sm bg-[#B5E18B] text-[#1F2A44] font-bold rounded hover:bg-[#c8f0a2]">+ Add Player</button>
           </div>
           <div className="p-3">

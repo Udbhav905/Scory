@@ -3,15 +3,18 @@
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import AuthModal from "./AuthModal";
 
 export default function Header() {
+  // ✅ All hooks called unconditionally at the top
+  const pathname = usePathname();
   const { data: session, status } = useSession();
+
   const [modalOpen, setModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -22,7 +25,10 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Mock cricket scores for the ticker (same as before)
+  // ✅ Now it's safe to return early
+  /* Header should be visible on the home page; removed early return that hid it */
+
+  // Mock cricket scores for the ticker
   const matches = [
     { team1: "AUS", team2: "ENG", score: "214/4", overs: "28.2", live: true },
     { team1: "IND", team2: "NZ", score: "187/6", overs: "35.1", live: false },
@@ -32,7 +38,6 @@ export default function Header() {
   ];
   const tickerItems = [...matches, ...matches];
 
-  // Get user initials for avatar
   const getUserInitials = () => {
     if (!session?.user?.name) return "U";
     return session.user.name
@@ -45,33 +50,12 @@ export default function Header() {
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Rajdhani:wght@500;600;700&display=swap');
 
-        @keyframes live-pulse {
-          0%   { box-shadow: 0 0 0 0 rgba(224,51,51,0.7); }
-          60%  { box-shadow: 0 0 0 5px rgba(224,51,51,0); }
-          100% { box-shadow: 0 0 0 0 rgba(224,51,51,0); }
-        }
 
-        @keyframes bar-sweep {
-          0%   { transform: translateX(-100%); }
-          100% { transform: translateX(200%); }
-        }
-
-        @keyframes ticker-move {
-          0%   { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-      `}</style>
-
-      <header className="relative sticky top-0 z-50 font-['Rajdhani',sans-serif] bg-[#0B1322] border-b border-white/5 shadow-[0_1px_0_rgba(255,255,255,0.03),0_16px_48px_rgba(0,0,0,0.6)]">
-        {/* Scanline overlay */}
+      <header className="relative sticky top-0 z-50 font-sans bg-ink-black border-b border-lavender-grey/10 shadow-[0_16px_48px_rgba(0,0,0,0.4)]">
         <div className="absolute inset-0 pointer-events-none bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(255,255,255,0.012)_3px,rgba(255,255,255,0.012)_4px)] z-0" />
 
-        {/* Main header bar */}
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
-          {/* Logo */}
           <Link href="/" className="group flex items-center gap-3">
             <div className="relative w-10 h-10 flex-shrink-0">
               <div className="w-full h-full flex items-center justify-center transition-transform duration-500 [clip-path:polygon(50%_0%,93%_25%,93%_75%,50%_100%,7%_75%,7%_25%)] bg-gradient-to-br from-[#28396C] to-[#3F5F9E] group-hover:scale-105 group-hover:rotate-12">
@@ -93,7 +77,6 @@ export default function Header() {
             </div>
           </Link>
 
-          {/* Right navigation */}
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
               href="/live"
@@ -123,12 +106,11 @@ export default function Header() {
                   </svg>
                 </button>
 
-                {/* Dropdown menu */}
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-10 w-48 bg-[#0B1322] border border-[#28396C] rounded-md shadow-lg py-1 z-60">
                     <Link
                       href="/profile"
-                      className="block px-4 py-2  z-75 text-sm text-[#EAE6BC] hover:bg-[#1A253F] transition"
+                      className="block px-4 py-2 z-75 text-sm text-[#EAE6BC] hover:bg-[#1A253F] transition"
                       onClick={() => setDropdownOpen(false)}
                     >
                       Profile
@@ -153,12 +135,10 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Animated sweep bar */}
         <div className="relative h-[2px] bg-[#1A253F] overflow-hidden">
           <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-[#B5E18B] via-50% to-transparent opacity-70 animate-[bar-sweep_3.5s_ease-in-out_infinite]" />
         </div>
 
-        {/* Score ticker strip */}
         <div className="relative z-10 h-7 bg-[#0D1422] border-b border-white/5 hidden sm:flex items-center overflow-hidden">
           <div className="flex-shrink-0 flex items-center gap-1.5 px-4 h-full bg-[#28396C] font-['Barlow_Condensed',sans-serif] font-bold text-[10px] tracking-[0.2em] text-[#F0FFC2] uppercase border-r-2 border-[#3F5F9E]">
             SCORES

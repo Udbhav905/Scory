@@ -1,34 +1,48 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { query } from "@/app/lib/db";
+import { auth } from "@/auth";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { id: matchId } = await params;
   if (!matchId) {
     return NextResponse.json({ error: "Match ID required" }, { status: 400 });
   }
 
-  const verify = await query(
-    `SELECT m.id FROM matches m
-     JOIN tournaments t ON m.tournament_id = t.id
-     WHERE m.id = $1 AND t.user_id = (SELECT id FROM users WHERE email = $2)`,
-    [matchId, session.user.email]
-  );
-  if (verify.rows.length === 0) {
-    return NextResponse.json({ error: "Not found or unauthorized" }, { status: 404 });
+  // Get the current session (optional)
+  const session = await auth();
+  let userId = null;
+  if (session?.user?.email) {
+    const userRes = await query("SELECT id FROM users WHERE email = $1", [session.user.email]);
+    userId = userRes.rows[0]?.id;
   }
 
-  const result = await query(
-    "SELECT id, team_a_name, team_a_logo_url, team_b_name, team_b_logo_url, venue, match_date, total_overs, status FROM matches WHERE id = $1",
-    [matchId]
-  );
-  return NextResponse.json(result.rows[0]);
+  try {
+    const result = await query(
+      `SELECT m.id, m.team_a_name, m.team_a_logo_url, m.team_b_name, m.team_b_logo_url,
+              m.venue, m.match_date, m.total_overs, m.status, t.user_id as tournament_owner_id
+       FROM matches m
+       LEFT JOIN tournaments t ON m.tournament_id = t.id
+       WHERE m.id = $1`,
+      [matchId]
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: "Match not found" }, { status: 404 });
+    }
+
+    const match = result.rows[0];
+    // Determine if current user is the tournament owner
+    const isOwner = userId ? match.tournament_owner_id === userId : false;
+
+    // Remove internal fields before sending
+    delete match.tournament_owner_id;
+
+    return NextResponse.json({ ...match, isOwner });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

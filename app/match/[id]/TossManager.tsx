@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export default function TossManager({ matchId, teamA, teamB, onTossComplete }: { matchId: number; teamA: string; teamB: string; onTossComplete: () => void }) {
+export default function TossManager({ matchId, teamA, teamALogo, teamB, teamBLogo, onTossComplete }: { matchId: number; teamA: string; teamALogo?: string; teamB: string; teamBLogo?: string; onTossComplete: () => void }) {
   const [toss, setToss] = useState<any>(null);
   const [winner, setWinner] = useState("");
   const [decision, setDecision] = useState("");
@@ -49,9 +49,13 @@ export default function TossManager({ matchId, teamA, teamB, onTossComplete }: {
       {toss ? (
         <>
           <h3 className="text-xl font-bold text-white mb-2">Toss Completed</h3>
-          <p className="text-[#EAE6BC] mb-4">
-            {winnerTeamLabel} won the toss and chose to {decisionLabel}.
-          </p>
+          <div className="flex items-center gap-4 mb-4">
+            {winner === "team_a" && teamALogo && <img src={teamALogo} alt={teamA} className="w-12 h-12 rounded-full object-cover border border-[#28396C]" />}
+            {winner === "team_b" && teamBLogo && <img src={teamBLogo} alt={teamB} className="w-12 h-12 rounded-full object-cover border border-[#28396C]" />}
+            <p className="text-[#EAE6BC]">
+              {winnerTeamLabel} won the toss and chose to {decisionLabel}.
+            </p>
+          </div>
           <button onClick={() => setToss(null)} className="text-sm text-[#B5E18B] hover:underline">Edit Toss</button>
         </>
       ) : (
