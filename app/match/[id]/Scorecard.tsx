@@ -108,6 +108,7 @@ function computeStats(innings: Innings | null, balls: BallEvent[], players: Play
     if (striker === null && b.batsman_id) striker = b.batsman_id;
 
     if (b.is_wicket && b.new_batsman_id) {
+      // New batsman replaces the dismissed player at the same end
       if (b.dismissed_batsman_id === striker) striker = b.new_batsman_id;
       else nonStriker = b.new_batsman_id;
     } else if (rotatesStrike(b)) {
@@ -204,6 +205,8 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
   const autoCompleteRef = useRef(false);
   const autoModalRef = useRef(false);
   const justStartedRef = useRef(false);
+  // Keep track of previous total runs for animation (for non‑owner updates)
+  const prevTotalRunsRef = useRef<number>(0);
 
   const target = allInnings.length >= 2 ? allInnings[0].total_runs + 1 : null;
 
@@ -211,6 +214,18 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
   const displayedBalls = viewInningsId === currentInnings?.id ? ballEvents : viewBalls;
   const displayedStats = useMemo(() => computeStats(displayedInnings, displayedBalls, players, target, totalOvers), [displayedInnings, displayedBalls, players, target, totalOvers]);
   const currentStats = useMemo(() => computeStats(currentInnings, ballEvents, players, target, totalOvers), [currentInnings, ballEvents, players, target, totalOvers]);
+
+  // Animation for any increase in total runs (owner or non‑owner)
+  useEffect(() => {
+    if (currentStats && currentStats.runs !== prevTotalRunsRef.current) {
+      const diff = currentStats.runs - prevTotalRunsRef.current;
+      if (diff > 0) {
+        setRunFlash({ on: true, val: diff });
+        setTimeout(() => setRunFlash({ on: false, val: 0 }), 1100);
+      }
+      prevTotalRunsRef.current = currentStats.runs;
+    }
+  }, [currentStats?.runs]);
 
   const inningsComplete = useCallback((): boolean => {
     if (!currentInnings || !currentStats) return false;
@@ -420,11 +435,7 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
       };
       const res = await fetch("/api/score", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (res.ok) {
-        const total = runs + (extra ? 1 : 0);
-        if (total > 0) {
-          setRunFlash({ on: true, val: total });
-          setTimeout(() => setRunFlash({ on: false, val: 0 }), 1100);
-        }
+        // The animation will be triggered by the useEffect that watches currentStats.runs
         applyLocal(runs, extra, isWicket, dis ?? null, newBat ?? null, legal);
         await refreshData(true);
         setShowWicket(false);
@@ -545,6 +556,7 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
   const scoringAllowed = isOwner && !isMatchDone && isViewingCurrent && !inningsComplete();
   const curOver = st ? Math.floor(st.legalBalls / 6) : 0;
   const ballsInOv = st ? st.legalBalls % 6 : 0;
+
   const batRows = dispBatters.map((p) => {
     const s = st?.batStats.get(p.id) ?? { runs: 0, balls: 0, fours: 0, sixes: 0 };
     const sr = s.balls > 0 ? ((s.runs / s.balls) * 100).toFixed(1) : "-";
@@ -553,6 +565,7 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
     const isNS = isViewingCurrent && p.id === efNonStriker;
     return { p, ...s, sr, out, isStr, isNS, shown: s.balls > 0 || isStr || isNS || out };
   });
+
   const bowlRows = dispBowlers.map((p) => {
     const s = st?.bowlStats.get(p.id) ?? { runs: 0, wickets: 0, legal: 0, maidens: 0 };
     const ov = toOvers(s.legal);
@@ -560,59 +573,107 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
     const cur = isViewingCurrent && p.id === efBowler;
     return { p, ov, m: s.maidens, r: s.runs, w: s.wickets, ec, cur, shown: cur || s.legal > 0 };
   });
+
   const oversMap = new Map<number, BallEvent[]>();
   displayedBalls.forEach((b) => {
     if (!oversMap.has(b.over_number)) oversMap.set(b.over_number, []);
     oversMap.get(b.over_number)!.push(b);
   });
+
   const WKTS = ["Bowled", "Caught", "LBW", "Run Out", "Stumped", "Hit Wicket", "Obstructing Field"];
 
-  // JSX – same as before (too long to repeat, but it's identical to the previous working version)
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 space-y-4 sm:space-y-5 pb-36 select-none">
       <AnimatePresence>
         {updating && (
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-black/80 backdrop-blur-sm text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border border-white/10">
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-black/80 backdrop-blur-sm text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border border-white/10"
+          >
             <span className="w-1.5 h-1.5 bg-[#e63946] rounded-full animate-pulse" /> Updating
           </motion.div>
         )}
       </AnimatePresence>
       <AnimatePresence>
         {runFlash.on && (
-          <motion.div key={runFlash.val + "-" + Date.now()} initial={{ opacity: 0, scale: 0.4 }} animate={{ opacity: 1, scale: 1.3 }} exit={{ opacity: 0, scale: 0.6, y: -40 }} transition={{ duration: 0.45 }} className="fixed inset-0 flex items-center justify-center z-[200] pointer-events-none">
-            <span className={`text-7xl sm:text-9xl font-black drop-shadow-2xl ${runFlash.val >= 6 ? "text-purple-400" : runFlash.val >= 4 ? "text-green-400" : "text-white"}`}>{runFlash.val}</span>
+          <motion.div
+            key={runFlash.val + "-" + Date.now()}
+            initial={{ opacity: 0, scale: 0.4 }}
+            animate={{ opacity: 1, scale: 1.3 }}
+            exit={{ opacity: 0, scale: 0.6, y: -40 }}
+            transition={{ duration: 0.45 }}
+            className="fixed inset-0 flex items-center justify-center z-[200] pointer-events-none"
+          >
+            <span
+              className={`text-7xl sm:text-9xl font-black drop-shadow-2xl ${
+                runFlash.val >= 6 ? "text-purple-400" : runFlash.val >= 4 ? "text-green-400" : "text-white"
+              }`}
+            >
+              {runFlash.val}
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
       {allInnings.length > 1 && (
         <div className="flex gap-2">
           {allInnings.map((inn) => (
-            <button key={inn.id} onClick={() => setViewInningsId(inn.id)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${viewInningsId === inn.id ? "bg-[#e63946] border-[#e63946] text-white" : "bg-[#1d3557] border-[#457b9d]/40 text-[#a8dadc] hover:border-[#e63946]/40"}`}>
+            <button
+              key={inn.id}
+              onClick={() => setViewInningsId(inn.id)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${
+                viewInningsId === inn.id
+                  ? "bg-[#e63946] border-[#e63946] text-white"
+                  : "bg-[#1d3557] border-[#457b9d]/40 text-[#a8dadc] hover:border-[#e63946]/40"
+              }`}
+            >
               {inn.innings_number === 1 ? "1st" : "2nd"} Inn · {inn.batting_team === "team_a" ? teamA : teamB}
             </button>
           ))}
         </div>
       )}
       <AnimatePresence>
-        {isMatchDone && matchWinner && (
-          <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="relative overflow-hidden bg-gradient-to-br from-[#1d3557] via-[#1a2a45] to-[#0f1e32] p-6 sm:p-8 rounded-2xl text-center border border-[#e63946]/40 shadow-2xl">
-            <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "repeating-linear-gradient(45deg,#e63946 0,#e63946 1px,transparent 0,transparent 50%)", backgroundSize: "12px 12px" }} />
-            <div className="relative">
-              <div className="text-[#a8dadc] text-[9px] font-black uppercase tracking-[0.5em] mb-2">🏆 Match Result</div>
-              <div className="text-2xl sm:text-4xl font-black text-white">{matchWinner}</div>
-            </div>
-          </motion.div>
-        )}
+      {matchWinner && (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      className="relative overflow-hidden bg-gradient-to-br from-[#1d3557] via-[#1a2a45] to-[#0f1e32] p-6 sm:p-8 rounded-2xl text-center border border-[#e63946]/40 shadow-2xl"
+    >
+      <div
+        className="absolute inset-0 opacity-5"
+        style={{
+          backgroundImage: "repeating-linear-gradient(45deg,#e63946 0,#e63946 1px,transparent 0,transparent 50%)",
+          backgroundSize: "12px 12px",
+        }}
+      />
+      <div className="relative">
+        <div className="text-[#a8dadc] text-[9px] font-black uppercase tracking-[0.5em] mb-2">🏆 Match Result</div>
+        <div className="text-2xl sm:text-4xl font-black text-white">{matchWinner}</div>
+      </div>
+    </motion.div>
+  )}
       </AnimatePresence>
       <div className="bg-gradient-to-br from-[#1d3557] to-[#162a44] rounded-2xl border border-[#457b9d]/30 shadow-2xl overflow-hidden">
         <div className="p-5 sm:p-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden border border-[#457b9d]/50 bg-[#0f1e32] flex items-center justify-center shrink-0">{dispLogo ? <img src={dispLogo} alt={dispName} className="w-full h-full object-cover" /> : <span className="text-2xl font-black text-[#457b9d]/40">🏏</span>}</div>
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden border border-[#457b9d]/50 bg-[#0f1e32] flex items-center justify-center shrink-0">
+                {dispLogo ? (
+                  <img src={dispLogo} alt={dispName} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-black text-[#457b9d]/40">🏏</span>
+                )}
+              </div>
               <div>
                 <div className="text-[#a8dadc]/70 text-[9px] font-black uppercase tracking-widest mb-0.5">{dispName}</div>
                 <div className="flex items-baseline gap-1.5">
-                  <motion.span animate={runFlash.on ? { scale: [1, 1.25, 1], color: ["#fff", "#e63946", "#fff"] } : { scale: 1 }} transition={{ duration: 0.4 }} className="text-5xl sm:text-6xl font-black tracking-tight leading-none text-white">
+                  <motion.span
+                    animate={runFlash.on ? { scale: [1, 1.25, 1], color: ["#fff", "#e63946", "#fff"] } : { scale: 1 }}
+                    transition={{ duration: 0.4 }}
+                    className="text-5xl sm:text-6xl font-black tracking-tight leading-none text-white"
+                  >
                     {st?.runs ?? 0}
                   </motion.span>
                   <span className="text-2xl sm:text-3xl font-black text-[#e63946] leading-none">/{st?.wickets ?? 0}</span>
@@ -621,14 +682,26 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
                   <span className="text-xs font-bold text-[#a8dadc]/50">
                     {toOvers(st?.legalBalls ?? 0)} / {totalOvers} ov
                   </span>
-                  {st?.isOverComplete && !inningsComplete() && isViewingCurrent && <span className="px-1.5 py-0.5 bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[9px] font-black uppercase rounded animate-pulse">Over End</span>}
+                  {st?.isOverComplete && !inningsComplete() && isViewingCurrent && (
+                    <span className="px-1.5 py-0.5 bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[9px] font-black uppercase rounded animate-pulse">
+                      Over End
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
             <div className="flex flex-col items-start sm:items-end gap-3">
               <div className="flex gap-2 flex-wrap">
-                {[{ label: "Target", val: target ?? "—", color: "text-white" }, { label: "CRR", val: st?.crr ?? "0.00", color: "text-[#4ade80]" }, ...(st?.rrr ? [{ label: "RRR", val: st.rrr, color: "text-[#e63946]" }] : []), { label: "Inns", val: displayedInnings?.innings_number === 1 ? "I" : "II", color: "text-[#e63946]" }].map(({ label, val, color }) => (
-                  <div key={label} className="bg-[#0f1e32]/60 px-3 py-2 rounded-xl border border-[#457b9d]/20 text-center min-w-[56px]">
+                {[
+                  { label: "Target", val: target ?? "—", color: "text-white" },
+                  { label: "CRR", val: st?.crr ?? "0.00", color: "text-[#4ade80]" },
+                  ...(st?.rrr ? [{ label: "RRR", val: st.rrr, color: "text-[#e63946]" }] : []),
+                  { label: "Inns", val: displayedInnings?.innings_number === 1 ? "I" : "II", color: "text-[#e63946]" },
+                ].map(({ label, val, color }) => (
+                  <div
+                    key={label}
+                    className="bg-[#0f1e32]/60 px-3 py-2 rounded-xl border border-[#457b9d]/20 text-center min-w-[56px]"
+                  >
                     <div className="text-[8px] text-[#a8dadc]/50 font-black uppercase">{label}</div>
                     <div className={`text-lg font-black ${color}`}>{val}</div>
                   </div>
@@ -637,17 +710,32 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
               {isOwner && !isMatchDone && isViewingCurrent && (
                 <div className="flex flex-wrap gap-1.5">
                   {inningsComplete() && allInnings.length === 1 && (
-                    <button onClick={startSecondInnings} disabled={submitting} className="px-3 py-1.5 bg-[#e63946] text-white font-black text-[9px] uppercase tracking-wider rounded-lg disabled:opacity-50">
+                    <button
+                      onClick={startSecondInnings}
+                      disabled={submitting}
+                      className="px-3 py-1.5 bg-[#e63946] text-white font-black text-[9px] uppercase tracking-wider rounded-lg disabled:opacity-50"
+                    >
                       2nd Innings →
                     </button>
                   )}
-                  <button onClick={undoLastBall} disabled={undoing || ballEvents.length === 0} className="px-3 py-1.5 bg-[#457b9d]/80 text-white font-black text-[9px] uppercase tracking-wider rounded-lg disabled:opacity-40 hover:bg-[#457b9d]">
+                  <button
+                    onClick={undoLastBall}
+                    disabled={undoing || ballEvents.length === 0}
+                    className="px-3 py-1.5 bg-[#457b9d]/80 text-white font-black text-[9px] uppercase tracking-wider rounded-lg disabled:opacity-40 hover:bg-[#457b9d]"
+                  >
                     ↩ Undo
                   </button>
-                  <button onClick={resetInn} disabled={resetting} className="px-3 py-1.5 bg-red-900/60 border border-red-700/50 text-red-400 font-black text-[9px] uppercase tracking-wider rounded-lg disabled:opacity-50">
+                  <button
+                    onClick={resetInn}
+                    disabled={resetting}
+                    className="px-3 py-1.5 bg-red-900/60 border border-red-700/50 text-red-400 font-black text-[9px] uppercase tracking-wider rounded-lg disabled:opacity-50"
+                  >
                     Reset
                   </button>
-                  <button onClick={finishMatch} className="px-3 py-1.5 bg-[#1d3557] border border-[#e63946]/40 text-[#e63946] font-black text-[9px] uppercase tracking-wider rounded-lg hover:border-[#e63946]">
+                  <button
+                    onClick={finishMatch}
+                    className="px-3 py-1.5 bg-[#1d3557] border border-[#e63946]/40 text-[#e63946] font-black text-[9px] uppercase tracking-wider rounded-lg hover:border-[#e63946]"
+                  >
                     Finish
                   </button>
                 </div>
@@ -658,11 +746,24 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
         <div className="px-5 sm:px-6 pb-4 border-t border-[#457b9d]/20 pt-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-1.5">
-              <span className="text-[#a8dadc]/30 text-[9px] font-black uppercase tracking-widest">Ov {curOver + (ballsInOv > 0 ? 1 : 0)}</span>
+              <span className="text-[#a8dadc]/30 text-[9px] font-black uppercase tracking-widest">
+                Ov {curOver + (ballsInOv > 0 ? 1 : 0)}
+              </span>
               <div className="flex gap-1">
                 {(st?.last6.length ?? 0) === 0 && <span className="text-[#a8dadc]/20 text-xs">—</span>}
                 {st?.last6.map((b, i) => (
-                  <span key={i} className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-black ${b === "W" ? "bg-red-500/25 text-red-400 border border-red-500/30" : b === "6" ? "bg-purple-500/25 text-purple-300 border border-purple-500/30" : b === "4" ? "bg-green-500/25 text-green-400 border border-green-500/30" : "bg-[#457b9d]/20 text-[#a8dadc] border border-[#457b9d]/15"}`}>
+                  <span
+                    key={i}
+                    className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-black ${
+                      b === "W"
+                        ? "bg-red-500/25 text-red-400 border border-red-500/30"
+                        : b === "6"
+                        ? "bg-purple-500/25 text-purple-300 border border-purple-500/30"
+                        : b === "4"
+                        ? "bg-green-500/25 text-green-400 border border-green-500/30"
+                        : "bg-[#457b9d]/20 text-[#a8dadc] border border-[#457b9d]/15"
+                    }`}
+                  >
                     {b}
                   </span>
                 ))}
@@ -704,7 +805,12 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
                 {batRows
                   .filter((r) => r.shown)
                   .map((r) => (
-                    <tr key={r.p.id} className={`border-b border-[#457b9d]/10 ${r.isStr ? "bg-[#e63946]/8" : r.isNS ? "bg-[#457b9d]/8" : ""}`}>
+                    <tr
+                      key={r.p.id}
+                      className={`border-b border-[#457b9d]/10 ${
+                        r.isStr ? "bg-[#e63946]/8" : r.isNS ? "bg-[#457b9d]/8" : ""
+                      }`}
+                    >
                       <td className="px-4 py-2.5 font-bold text-[#f1faee] whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
                           {r.isStr && <span className="w-1.5 h-1.5 rounded-full bg-[#e63946]" title="On strike" />}
@@ -750,7 +856,10 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
                 {bowlRows
                   .filter((r) => r.shown)
                   .map((r) => (
-                    <tr key={r.p.id} className={`border-b border-[#457b9d]/10 ${r.cur ? "bg-[#4ade80]/5" : ""}`}>
+                    <tr
+                      key={r.p.id}
+                      className={`border-b border-[#457b9d]/10 ${r.cur ? "bg-[#4ade80]/5" : ""}`}
+                    >
                       <td className="px-4 py-2.5 font-bold text-[#f1faee] whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
                           {r.cur && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80]" />}
@@ -773,10 +882,12 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
         <div className="bg-[#1d3557]/40 rounded-xl border border-[#457b9d]/20 p-4">
           <div className="text-[9px] font-black text-[#e63946] uppercase tracking-widest mb-2">Partnership</div>
           <div className="text-2xl font-black text-white">
-            {st?.partnership.runs ?? 0} <span className="text-sm text-[#a8dadc]/50 font-bold">({st?.partnership.balls ?? 0}b)</span>
+            {st?.partnership.runs ?? 0}{" "}
+            <span className="text-sm text-[#a8dadc]/50 font-bold">({st?.partnership.balls ?? 0}b)</span>
           </div>
           <div className="text-[10px] text-[#a8dadc]/60 mt-1 truncate">
-            {players.find((p) => p.id === efStriker)?.name ?? "—"} & {players.find((p) => p.id === efNonStriker)?.name ?? "—"}
+            {players.find((p) => p.id === efStriker)?.name ?? "—"} &{" "}
+            {players.find((p) => p.id === efNonStriker)?.name ?? "—"}
           </div>
         </div>
         <div className="bg-[#1d3557]/40 rounded-xl border border-[#457b9d]/20 p-4">
@@ -803,7 +914,10 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
           ) : (
             <div className="flex flex-wrap gap-1">
               {st!.yetToBat.map((p) => (
-                <span key={p.id} className="text-[9px] bg-[#1d3557] border border-[#457b9d]/30 text-[#a8dadc]/70 px-2 py-0.5 rounded-full">
+                <span
+                  key={p.id}
+                  className="text-[9px] bg-[#1d3557] border border-[#457b9d]/30 text-[#a8dadc]/70 px-2 py-0.5 rounded-full"
+                >
                   {p.name}
                 </span>
               ))}
@@ -832,12 +946,24 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
                     </div>
                     <div className="p-2 space-y-0.5">
                       {bs.map((b, idx) => {
-                        const out = b.is_wicket ? `⚡ ${b.wicket_type ?? "Wicket"}` : b.extra_type ? `${b.extra_type.toUpperCase()}${b.extra_runs ? ` +${b.extra_runs}` : ""}` : b.runs === 0 ? "Dot" : `${b.runs} run${b.runs !== 1 ? "s" : ""}`;
+                        const out = b.is_wicket
+                          ? `⚡ ${b.wicket_type ?? "Wicket"}`
+                          : b.extra_type
+                          ? `${b.extra_type.toUpperCase()}${b.extra_runs ? ` +${b.extra_runs}` : ""}`
+                          : b.runs === 0
+                          ? "Dot"
+                          : `${b.runs} run${b.runs !== 1 ? "s" : ""}`;
                         return (
-                          <div key={idx} className={`flex justify-between items-center rounded px-2 py-1 text-[9px] ${b.is_wicket ? "bg-red-500/10 text-red-400" : "text-[#a8dadc]/70"}`}>
+                          <div
+                            key={idx}
+                            className={`flex justify-between items-center rounded px-2 py-1 text-[9px] ${
+                              b.is_wicket ? "bg-red-500/10 text-red-400" : "text-[#a8dadc]/70"
+                            }`}
+                          >
                             <span className="font-bold">{out}</span>
                             <span className="text-[#a8dadc]/40">
-                              {players.find((p) => p.id === b.batsman_id)?.name ?? "?"} · {players.find((p) => p.id === b.bowler_id)?.name ?? "?"}
+                              {players.find((p) => p.id === b.batsman_id)?.name ?? "?"} ·{" "}
+                              {players.find((p) => p.id === b.bowler_id)?.name ?? "?"}
                             </span>
                           </div>
                         );
@@ -850,48 +976,94 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
         )}
       </div>
       {scoringAllowed && (
-        <motion.div initial={{ y: 120, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 28 }} className="fixed bottom-0 left-0 right-0 z-50 bg-[#0a1628]/97 backdrop-blur-xl border-t border-[#457b9d]/30 px-3 py-3">
+        <motion.div
+          initial={{ y: 120, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 28 }}
+          className="fixed bottom-0 left-0 right-0 z-50 bg-[#0a1628]/97 backdrop-blur-xl border-t border-[#457b9d]/30 px-3 py-3"
+        >
           <div className="flex items-center justify-center gap-2 mb-2.5 text-[9px] font-black uppercase tracking-widest flex-wrap">
-            <span className={localStriker ? "text-[#e63946]" : "text-[#a8dadc]/25"}>★ {localStriker ? players.find((p) => p.id === localStriker)?.name?.split(" ")[0] : "Striker?"}</span>
+            <span className={localStriker ? "text-[#e63946]" : "text-[#a8dadc]/25"}>
+              ★ {localStriker ? players.find((p) => p.id === localStriker)?.name?.split(" ")[0] : "Striker?"}
+            </span>
             <span className="text-[#457b9d]/40">·</span>
-            <span className={localNonStriker ? "text-[#a8dadc]/70" : "text-[#a8dadc]/25"}>{localNonStriker ? players.find((p) => p.id === localNonStriker)?.name?.split(" ")[0] : "Non-striker?"}</span>
+            <span className={localNonStriker ? "text-[#a8dadc]/70" : "text-[#a8dadc]/25"}>
+              {localNonStriker ? players.find((p) => p.id === localNonStriker)?.name?.split(" ")[0] : "Non-striker?"}
+            </span>
             <span className="text-[#457b9d]/40">·</span>
-            <span className={localBowler ? "text-[#4ade80]/80" : "text-[#a8dadc]/25"}>⚡ {localBowler ? players.find((p) => p.id === localBowler)?.name?.split(" ")[0] : "Bowler?"}</span>
+            <span className={localBowler ? "text-[#4ade80]/80" : "text-[#a8dadc]/25"}>
+              ⚡ {localBowler ? players.find((p) => p.id === localBowler)?.name?.split(" ")[0] : "Bowler?"}
+            </span>
           </div>
           <div className="flex items-center justify-center gap-1.5 flex-wrap max-w-2xl mx-auto">
             {[0, 1, 2, 3, 4, 6].map((r) => (
-              <button key={r} onClick={() => recordBall(r)} disabled={submitting} className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl font-black text-lg sm:text-xl transition-all active:scale-90 disabled:opacity-40 ${r === 4 ? "bg-green-600/80 hover:bg-green-600 text-white border border-green-500/40" : r === 6 ? "bg-purple-600/80 hover:bg-purple-600 text-white border border-purple-500/40" : "bg-[#1d3557] hover:bg-[#457b9d] text-white border border-[#457b9d]/40"}`}>
+              <button
+                key={r}
+                onClick={() => recordBall(r)}
+                disabled={submitting}
+                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl font-black text-lg sm:text-xl transition-all active:scale-90 disabled:opacity-40 ${
+                  r === 4
+                    ? "bg-green-600/80 hover:bg-green-600 text-white border border-green-500/40"
+                    : r === 6
+                    ? "bg-purple-600/80 hover:bg-purple-600 text-white border border-purple-500/40"
+                    : "bg-[#1d3557] hover:bg-[#457b9d] text-white border border-[#457b9d]/40"
+                }`}
+              >
                 {r}
               </button>
             ))}
             <div className="w-px h-10 bg-[#457b9d]/20" />
-            <button onClick={() => recordBall(0, "wide")} className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl font-black text-[10px] bg-amber-900/60 hover:bg-amber-800/80 text-amber-400 border border-amber-700/40">
+            <button
+              onClick={() => recordBall(0, "wide")}
+              className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl font-black text-[10px] bg-amber-900/60 hover:bg-amber-800/80 text-amber-400 border border-amber-700/40"
+            >
               WD
             </button>
-            <button onClick={() => recordBall(0, "no ball")} className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl font-black text-[10px] bg-orange-900/60 hover:bg-orange-800/80 text-orange-400 border border-orange-700/40">
+            <button
+              onClick={() => recordBall(0, "no ball")}
+              className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl font-black text-[10px] bg-orange-900/60 hover:bg-orange-800/80 text-orange-400 border border-orange-700/40"
+            >
               NB
             </button>
-            <button onClick={() => recordBall(0, "bye")} className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl font-black text-[9px] bg-[#1d3557] hover:bg-[#457b9d]/60 text-[#a8dadc]/70 border border-[#457b9d]/30">
+            <button
+              onClick={() => recordBall(0, "bye")}
+              className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl font-black text-[9px] bg-[#1d3557] hover:bg-[#457b9d]/60 text-[#a8dadc]/70 border border-[#457b9d]/30"
+            >
               BYE
             </button>
             <div className="w-px h-10 bg-[#457b9d]/20" />
-            <button onClick={() => setShowWicket(true)} className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl font-black text-sm bg-[#e63946] hover:bg-[#c1121f] text-white border border-[#e63946]/60">
+            <button
+              onClick={() => setShowWicket(true)}
+              className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl font-black text-sm bg-[#e63946] hover:bg-[#c1121f] text-white border border-[#e63946]/60"
+            >
               W
             </button>
             <div className="w-px h-10 bg-[#457b9d]/20" />
-            <button onClick={() => setShowBowler(true)} className="h-11 sm:h-12 px-3 rounded-xl font-black text-[9px] bg-[#0f1e32] hover:bg-[#1d3557] text-[#4ade80]/70 border border-[#4ade80]/20 uppercase tracking-wider">
+            <button
+              onClick={() => setShowBowler(true)}
+              className="h-11 sm:h-12 px-3 rounded-xl font-black text-[9px] bg-[#0f1e32] hover:bg-[#1d3557] text-[#4ade80]/70 border border-[#4ade80]/20 uppercase tracking-wider"
+            >
               Bowler
             </button>
-            <button onClick={() => setShowStriker(true)} className="h-11 sm:h-12 px-3 rounded-xl font-black text-[9px] bg-[#0f1e32] hover:bg-[#1d3557] text-[#e63946]/70 border border-[#e63946]/20 uppercase tracking-wider">
+            <button
+              onClick={() => setShowStriker(true)}
+              className="h-11 sm:h-12 px-3 rounded-xl font-black text-[9px] bg-[#0f1e32] hover:bg-[#1d3557] text-[#e63946]/70 border border-[#e63946]/20 uppercase tracking-wider"
+            >
               Set
             </button>
           </div>
         </motion.div>
       )}
-      <AnimatePresence>
+           <AnimatePresence>
         {showBowler && (
-          <div className="fixed inset-0 bg-black/75 flex items-end sm:items-center justify-center p-4 z-[70]" onClick={() => setShowBowler(false)}>
-            <div onClick={(e) => e.stopPropagation()} className="bg-[#1d3557] rounded-2xl border border-[#457b9d]/40 w-full max-w-sm">
+          <div
+            className="fixed inset-0 bg-black/75 flex items-end sm:items-center justify-center p-4 z-[70]"
+            onClick={() => setShowBowler(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#1d3557] rounded-2xl border border-[#457b9d]/40 w-full max-w-sm"
+            >
               <div className="px-5 py-4 border-b border-[#457b9d]/20">
                 <div className="text-[9px] font-black uppercase tracking-widest text-[#4ade80]/80">Select Bowler</div>
                 <div className="text-xs text-[#a8dadc]/50">for over {curOver + 1}</div>
@@ -912,16 +1084,26 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
                 ))}
               </div>
               <div className="p-3 border-t border-[#457b9d]/20">
-                <button onClick={() => setShowBowler(false)} className="w-full py-2.5 rounded-xl border border-[#457b9d]/30 text-[#a8dadc]/60 text-xs font-black uppercase">
+                <button
+                  onClick={() => setShowBowler(false)}
+                  className="w-full py-2.5 rounded-xl border border-[#457b9d]/30 text-[#a8dadc]/60 text-xs font-black uppercase"
+                >
                   Cancel
                 </button>
               </div>
             </div>
           </div>
         )}
+
         {showStriker && (
-          <div className="fixed inset-0 bg-black/75 flex items-end sm:items-center justify-center p-4 z-[70]" onClick={() => setShowStriker(false)}>
-            <div onClick={(e) => e.stopPropagation()} className="bg-[#1d3557] rounded-2xl border border-[#457b9d]/40 w-full max-w-sm">
+          <div
+            className="fixed inset-0 bg-black/75 flex items-end sm:items-center justify-center p-4 z-[70]"
+            onClick={() => setShowStriker(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#1d3557] rounded-2xl border border-[#457b9d]/40 w-full max-w-sm"
+            >
               <div className="px-5 py-4 border-b border-[#457b9d]/20">
                 <div className="text-[9px] font-black uppercase tracking-widest text-[#e63946]">On Strike</div>
                 <div className="text-xs text-[#a8dadc]/50">Who is facing?</div>
@@ -935,23 +1117,37 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
                       setShowStriker(false);
                       if (!localNonStriker) setShowNonStr(true);
                     }}
-                    className={`w-full p-3 rounded-xl text-left transition-all ${p.id === localStriker ? "bg-[#e63946]/20 border border-[#e63946]/40" : "bg-[#0f1e32]/60 hover:bg-[#457b9d]/30"}`}
+                    className={`w-full p-3 rounded-xl text-left transition-all ${
+                      p.id === localStriker
+                        ? "bg-[#e63946]/20 border border-[#e63946]/40"
+                        : "bg-[#0f1e32]/60 hover:bg-[#457b9d]/30"
+                    }`}
                   >
                     <span className="text-sm font-bold text-[#f1faee]">{p.name}</span>
                   </button>
                 ))}
               </div>
               <div className="p-3 border-t border-[#457b9d]/20">
-                <button onClick={() => setShowStriker(false)} className="w-full py-2.5 rounded-xl border border-[#457b9d]/30 text-[#a8dadc]/60 text-xs font-black uppercase">
+                <button
+                  onClick={() => setShowStriker(false)}
+                  className="w-full py-2.5 rounded-xl border border-[#457b9d]/30 text-[#a8dadc]/60 text-xs font-black uppercase"
+                >
                   Cancel
                 </button>
               </div>
             </div>
           </div>
         )}
+
         {showNonStr && (
-          <div className="fixed inset-0 bg-black/75 flex items-end sm:items-center justify-center p-4 z-[70]" onClick={() => setShowNonStr(false)}>
-            <div onClick={(e) => e.stopPropagation()} className="bg-[#1d3557] rounded-2xl border border-[#457b9d]/40 w-full max-w-sm">
+          <div
+            className="fixed inset-0 bg-black/75 flex items-end sm:items-center justify-center p-4 z-[70]"
+            onClick={() => setShowNonStr(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#1d3557] rounded-2xl border border-[#457b9d]/40 w-full max-w-sm"
+            >
               <div className="px-5 py-4 border-b border-[#457b9d]/20">
                 <div className="text-[9px] font-black uppercase tracking-widest text-[#457b9d]">Non-Striker</div>
                 <div className="text-xs text-[#a8dadc]/50">Who is at the other end?</div>
@@ -965,20 +1161,28 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
                       setShowNonStr(false);
                       if (!localBowler) setShowBowler(true);
                     }}
-                    className={`w-full p-3 rounded-xl text-left transition-all ${p.id === localNonStriker ? "bg-[#457b9d]/30 border border-[#457b9d]/60" : "bg-[#0f1e32]/60 hover:bg-[#457b9d]/30"}`}
+                    className={`w-full p-3 rounded-xl text-left transition-all ${
+                      p.id === localNonStriker
+                        ? "bg-[#457b9d]/30 border border-[#457b9d]/60"
+                        : "bg-[#0f1e32]/60 hover:bg-[#457b9d]/30"
+                    }`}
                   >
                     <span className="text-sm font-bold text-[#f1faee]">{p.name}</span>
                   </button>
                 ))}
               </div>
               <div className="p-3 border-t border-[#457b9d]/20">
-                <button onClick={() => setShowNonStr(false)} className="w-full py-2.5 rounded-xl border border-[#457b9d]/30 text-[#a8dadc]/60 text-xs font-black uppercase">
+                <button
+                  onClick={() => setShowNonStr(false)}
+                  className="w-full py-2.5 rounded-xl border border-[#457b9d]/30 text-[#a8dadc]/60 text-xs font-black uppercase"
+                >
                   Cancel
                 </button>
               </div>
             </div>
           </div>
         )}
+
         {showWicket && (
           <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center p-4 z-[70]">
             <div className="bg-[#1d3557] rounded-2xl border border-[#e63946]/30 w-full max-w-sm">
@@ -988,32 +1192,64 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
               </div>
               <div className="p-4 space-y-4">
                 <div>
-                  <label className="text-[9px] font-black text-[#a8dadc]/50 uppercase tracking-widest block mb-1.5">Dismissed</label>
+                  <label className="text-[9px] font-black text-[#a8dadc]/50 uppercase tracking-widest block mb-1.5">
+                    Dismissed
+                  </label>
                   <div className="grid grid-cols-2 gap-1.5">
-                    {[localStriker, localNonStriker].filter(Boolean).map((id) => (
-                      <button key={id} onClick={() => setDismissedId(id!)} className={`p-2.5 rounded-xl text-sm font-bold transition-all ${dismissedId === id ? "bg-[#e63946] text-white" : "bg-[#0f1e32]/60 text-[#f1faee] border border-[#457b9d]/20 hover:bg-[#e63946]/20"}`}>
-                        {players.find((p) => p.id === id)?.name}
-                        {id === localStriker ? " ★" : ""}
-                      </button>
-                    ))}
+                    {[localStriker, localNonStriker]
+                      .filter(Boolean)
+                      .map((id, idx) => (
+                        <button
+                          key={`${id}-${idx}`}   // ✅ unique key using id + index
+                          onClick={() => setDismissedId(id!)}
+                          className={`p-2.5 rounded-xl text-sm font-bold transition-all ${
+                            dismissedId === id
+                              ? "bg-[#e63946] text-white"
+                              : "bg-[#0f1e32]/60 text-[#f1faee] border border-[#457b9d]/20 hover:bg-[#e63946]/20"
+                          }`}
+                        >
+                          {players.find((p) => p.id === id)?.name}
+                          {id === localStriker ? " ★" : ""}
+                        </button>
+                      ))}
                   </div>
                 </div>
                 <div>
-                  <label className="text-[9px] font-black text-[#a8dadc]/50 uppercase tracking-widest block mb-1.5">Dismissal</label>
+                  <label className="text-[9px] font-black text-[#a8dadc]/50 uppercase tracking-widest block mb-1.5">
+                    Dismissal
+                  </label>
                   <div className="grid grid-cols-3 gap-1.5">
                     {WKTS.map((w) => (
-                      <button key={w} onClick={() => setWkType(w)} className={`p-2 rounded-lg text-[10px] font-black uppercase transition-all ${wkType === w ? "bg-[#e63946] text-white" : "bg-[#0f1e32]/60 text-[#a8dadc]/70 border border-[#457b9d]/20 hover:bg-[#e63946]/15"}`}>
+                      <button
+                        key={w}
+                        onClick={() => setWkType(w)}
+                        className={`p-2 rounded-lg text-[10px] font-black uppercase transition-all ${
+                          wkType === w
+                            ? "bg-[#e63946] text-white"
+                            : "bg-[#0f1e32]/60 text-[#a8dadc]/70 border border-[#457b9d]/20 hover:bg-[#e63946]/15"
+                        }`}
+                      >
                         {w}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <label className="text-[9px] font-black text-[#a8dadc]/50 uppercase tracking-widest block mb-1.5">New Batsman {(st?.yetToBat.length ?? 0) === 0 && <span className="text-[#e63946]/60">(Last wicket)</span>}</label>
+                  <label className="text-[9px] font-black text-[#a8dadc]/50 uppercase tracking-widest block mb-1.5">
+                    New Batsman {(st?.yetToBat.length ?? 0) === 0 && <span className="text-[#e63946]/60">(Last wicket)</span>}
+                  </label>
                   {(st?.yetToBat.length ?? 0) > 0 ? (
                     <div className="space-y-1 max-h-28 overflow-y-auto">
                       {st!.yetToBat.map((p) => (
-                        <button key={p.id} onClick={() => setNewBatId(p.id)} className={`w-full p-2.5 rounded-xl text-sm font-bold text-left transition-all ${newBatId === p.id ? "bg-[#457b9d] text-white" : "bg-[#0f1e32]/60 text-[#f1faee] border border-[#457b9d]/20 hover:bg-[#457b9d]/30"}`}>
+                        <button
+                          key={p.id}
+                          onClick={() => setNewBatId(p.id)}
+                          className={`w-full p-2.5 rounded-xl text-sm font-bold text-left transition-all ${
+                            newBatId === p.id
+                              ? "bg-[#457b9d] text-white"
+                              : "bg-[#0f1e32]/60 text-[#f1faee] border border-[#457b9d]/20 hover:bg-[#457b9d]/30"
+                          }`}
+                        >
                           {p.name}
                         </button>
                       ))}
