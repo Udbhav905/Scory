@@ -7,7 +7,6 @@ import PlayersManager from "./PlayersManager";
 import TossManager from "./TossManager";
 import Scorecard from "./Scorecard";
 import Link from "next/link";
-"use client";
 
 interface Props {
   matchi: any;
