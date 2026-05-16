@@ -6,14 +6,83 @@ import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import AuthModal from "./AuthModal";
 
+// Helper: format score from innings data
+function formatScore(innings: any[]) {
+  if (!innings || innings.length === 0) return null;
+  // Find the most recently played innings (highest innings_number)
+  const lastInn = innings.reduce((prev, curr) => 
+    curr.innings_number > prev.innings_number ? curr : prev
+  );
+  return `${lastInn.total_runs}/${lastInn.total_wickets}`;
+}
+
+// Helper: get overs string
+function formatOvers(innings: any[]) {
+  if (!innings || innings.length === 0) return null;
+  const lastInn = innings.reduce((prev, curr) => 
+    curr.innings_number > prev.innings_number ? curr : prev
+  );
+  return lastInn.overs;
+}
+
 export default function Header() {
-  // ✅ All hooks called unconditionally at the top
   const pathname = usePathname();
   const { data: session, status } = useSession();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [tickerItems, setTickerItems] = useState<any[]>([]);
+  const [tickerLoading, setTickerLoading] = useState(true);
+
+  // Fetch real data for the ticker
+  useEffect(() => {
+    async function fetchTickerData() {
+      try {
+        // 1. Get recent matches (completed & live)
+        const res = await fetch(`/api/public/dashboard?query=`);
+        if (!res.ok) throw new Error("Failed to fetch matches");
+        const data = await res.json();
+        const matches = [...(data.liveMatches || []), ...(data.recentMatches || [])].slice(0, 12); // limit to 12
+
+        // 2. For each match, fetch its innings to get score and overs
+        const items = await Promise.all(
+          matches.map(async (match: any) => {
+            try {
+              const inningsRes = await fetch(`/api/innings?matchId=${match.id}`);
+              if (!inningsRes.ok) return null;
+              const innings = await inningsRes.json();
+              const score = formatScore(innings);
+              const overs = formatOvers(innings);
+              const isLive = match.status === "live" || match.status === "innings_1_complete" || match.status === "innings_2_live";
+
+              return {
+                team1: match.team_a_name,
+                team2: match.team_b_name,
+                score: score || (isLive ? "0/0" : "Completed"),
+                overs: overs ? `${overs} ov` : "",
+                live: isLive,
+                id: match.id,
+              };
+            } catch (err) {
+              console.error(`Error fetching innings for match ${match.id}`, err);
+              return null;
+            }
+          })
+        );
+
+        const validItems = items.filter((item): item is NonNullable<typeof item> => item !== null);
+        setTickerItems(validItems);
+      } catch (err) {
+        console.error("Ticker data fetch failed", err);
+        // Fallback to empty array (no ticker items)
+      } finally {
+        setTickerLoading(false);
+      }
+    }
+
+    fetchTickerData();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -25,19 +94,6 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ✅ Now it's safe to return early
-  /* Header should be visible on the home page; removed early return that hid it */
-
-  // Mock cricket scores for the ticker
-  const matches = [
-    { team1: "AUS", team2: "ENG", score: "214/4", overs: "28.2", live: true },
-    { team1: "IND", team2: "NZ", score: "187/6", overs: "35.1", live: false },
-    { team1: "SA", team2: "PAK", score: "302/8", overs: "50.0", live: false },
-    { team1: "SL", team2: "BAN", score: "156/2", overs: "24.3", live: true },
-    { team1: "WI", team2: "AFG", score: "98/4", overs: "18.2", live: false },
-  ];
-  const tickerItems = [...matches, ...matches];
-
   const getUserInitials = () => {
     if (!session?.user?.name) return "U";
     return session.user.name
@@ -48,10 +104,15 @@ export default function Header() {
       .slice(0, 2);
   };
 
+  // Build the ticker list (duplicate items for seamless loop)
+  const displayedItems = tickerLoading
+    ? [] // show nothing while loading
+    : tickerItems.length === 0
+    ? [] // no data → nothing displayed
+    : [...tickerItems, ...tickerItems]; // duplicate for smooth animation
+
   return (
     <>
-
-
       <header className="relative sticky top-0 z-50 font-sans bg-ink-black border-b border-lavender-grey/10 shadow-[0_16px_48px_rgba(0,0,0,0.4)]">
         <div className="absolute inset-0 pointer-events-none bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(255,255,255,0.012)_3px,rgba(255,255,255,0.012)_4px)] z-0" />
 
@@ -78,15 +139,6 @@ export default function Header() {
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/live"
-              className="relative flex items-center gap-2 px-4 h-9 rounded-sm bg-[#B5E18B] text-[#1F2A44] font-['Barlow_Condensed',sans-serif] font-bold text-xs sm:text-sm tracking-wider uppercase transition-all hover:bg-[#c8f0a2] hover:-translate-y-px overflow-hidden group/btn"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#E03333] shadow-[0_0_0_0_rgba(224,51,51,0.7)] animate-[live-pulse_1.4s_ease-out_infinite]" />
-              Live
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-500" />
-            </Link>
-
             <div className="w-px h-5 bg-white/10" />
 
             {status === "authenticated" ? (
@@ -139,30 +191,42 @@ export default function Header() {
           <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-[#B5E18B] via-50% to-transparent opacity-70 animate-[bar-sweep_3.5s_ease-in-out_infinite]" />
         </div>
 
+        {/* Ticker - now showing REAL match data */}
         <div className="relative z-10 h-7 bg-[#0D1422] border-b border-white/5 hidden sm:flex items-center overflow-hidden">
           <div className="flex-shrink-0 flex items-center gap-1.5 px-4 h-full bg-[#28396C] font-['Barlow_Condensed',sans-serif] font-bold text-[10px] tracking-[0.2em] text-[#F0FFC2] uppercase border-r-2 border-[#3F5F9E]">
             SCORES
           </div>
           <div className="flex-1 overflow-hidden">
-            <div className="flex items-center animate-[ticker-move_28s_linear_infinite] whitespace-nowrap">
-              {tickerItems.map((match, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-2 px-6 font-['Barlow_Condensed',sans-serif] text-[11px] font-semibold tracking-wide text-[#8090A4] uppercase border-r border-white/5"
-                >
-                  <span className="text-[#E0E8F0] font-bold">{match.team1}</span>
-                  <span>vs</span>
-                  <span className="text-[#E0E8F0] font-bold">{match.team2}</span>
-                  <span className="text-[#B5E18B] font-bold">{match.score}</span>
-                  <span className="text-[#EAE6BC]">({match.overs})</span>
-                  {match.live && (
-                    <span className="text-[9px] font-bold tracking-[0.15em] text-[#E03333] border border-[#E03333]/60 px-1.5 py-px rounded-sm">
-                      LIVE
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
+            {tickerLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="w-3 h-3 border-2 border-[#B5E18B] border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : displayedItems.length === 0 ? (
+              <div className="flex items-center h-full px-4 text-[#8090A4] text-[10px] uppercase">
+                No recent matches
+              </div>
+            ) : (
+              <div className="flex items-center animate-[ticker-move_28s_linear_infinite] whitespace-nowrap">
+                {displayedItems.map((match, idx) => (
+                  <Link
+                    key={`${match.id}-${idx}`}
+                    href={`/match/${match.id}`}
+                    className="flex items-center gap-2 px-6 font-['Barlow_Condensed',sans-serif] text-[11px] font-semibold tracking-wide text-[#8090A4] uppercase border-r border-white/5 hover:text-[#B5E18B] transition-colors"
+                  >
+                    <span className="text-[#E0E8F0] font-bold">{match.team1}</span>
+                    <span>vs</span>
+                    <span className="text-[#E0E8F0] font-bold">{match.team2}</span>
+                    <span className="text-[#B5E18B] font-bold">{match.score}</span>
+                    {match.overs && <span className="text-[#EAE6BC]">({match.overs})</span>}
+                    {match.live && (
+                      <span className="text-[9px] font-bold tracking-[0.15em] text-[#E03333] border border-[#E03333]/60 px-1.5 py-px rounded-sm">
+                        LIVE
+                      </span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </header>

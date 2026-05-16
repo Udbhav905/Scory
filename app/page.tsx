@@ -127,41 +127,14 @@ function useTheme() {
 
 function FloatingThemeToggle({ theme, toggle, t }: { theme: Theme; toggle: () => void; t: T }) {
   return (
-    <motion.button
-      onClick={toggle}
-      whileTap={{ scale: 0.88 }}
-      whileHover={{ scale: 1.06 }}
-      className={`fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full border shadow-xl flex items-center justify-center transition-all duration-500 ${t.toggleBg}`}
-      aria-label="Toggle theme"
-    >
+    <motion.button onClick={toggle} whileTap={{ scale: 0.88 }} whileHover={{ scale: 1.06 }} className={`fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full border shadow-xl flex items-center justify-center transition-all duration-500 ${t.toggleBg}`} aria-label="Toggle theme">
       <AnimatePresence mode="wait">
         {theme === "dark" ? (
-          <motion.svg
-            key="moon"
-            initial={{ rotate: -40, opacity: 0, scale: 0.6 }}
-            animate={{ rotate: 0, opacity: 1, scale: 1 }}
-            exit={{ rotate: 40, opacity: 0, scale: 0.6 }}
-            transition={{ duration: 0.18 }}
-            className="w-5 h-5 text-[#3b6fd4]"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <motion.svg key="moon" initial={{ rotate: -40, opacity: 0, scale: 0.6 }} animate={{ rotate: 0, opacity: 1, scale: 1 }} exit={{ rotate: 40, opacity: 0, scale: 0.6 }} transition={{ duration: 0.18 }} className="w-5 h-5 text-[#3b6fd4]" fill="currentColor" viewBox="0 0 24 24">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
           </motion.svg>
         ) : (
-          <motion.svg
-            key="sun"
-            initial={{ rotate: 40, opacity: 0, scale: 0.6 }}
-            animate={{ rotate: 0, opacity: 1, scale: 1 }}
-            exit={{ rotate: -40, opacity: 0, scale: 0.6 }}
-            transition={{ duration: 0.18 }}
-            className="w-5 h-5 text-[#f59e0b]"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          >
+          <motion.svg key="sun" initial={{ rotate: 40, opacity: 0, scale: 0.6 }} animate={{ rotate: 0, opacity: 1, scale: 1 }} exit={{ rotate: -40, opacity: 0, scale: 0.6 }} transition={{ duration: 0.18 }} className="w-5 h-5 text-[#f59e0b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <circle cx="12" cy="12" r="4" fill="white" stroke="none" />
             <line x1="12" y1="2" x2="12" y2="5" />
             <line x1="12" y1="19" x2="12" y2="22" />
@@ -185,8 +158,15 @@ function TeamAvatar({ name, logoUrl, size = "md", t }: { name: string; logoUrl?:
   return (
     <div className={`${sz[size]} rounded-xl ${t.avatarBg} border flex items-center justify-center overflow-hidden shrink-0 transition-all duration-500`}>
       {logoUrl && (
-        <img src={logoUrl} alt={name} className="w-full h-full object-cover"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden"); }} />
+        <img
+          src={logoUrl}
+          alt={name}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = "none";
+            (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+          }}
+        />
       )}
       <span className={`font-black ${t.textAccent} ${logoUrl ? "hidden" : ""}`}>{name?.[0] ?? "?"}</span>
     </div>
@@ -205,11 +185,7 @@ function LiveBadge({ t }: { t: T }) {
 }
 
 function StatusBadge({ status, t }: { status: string; t: T }) {
-  return (
-    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all duration-500 ${status === "active" ? t.statusActive : t.statusDefault}`}>
-      {status || "upcoming"}
-    </span>
-  );
+  return <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all duration-500 ${status === "active" ? t.statusActive : t.statusDefault}`}>{status || "upcoming"}</span>;
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -250,16 +226,9 @@ function EmptyState({ message, t }: { message: string; t: T }) {
 function LiveMatchCard({ match, t }: { match: Match; t: T }) {
   return (
     <Link href={`/match/${match.id}`} className="block h-full">
-      <motion.div
-        whileHover={{ y: -4, scale: 1.01 }}
-        whileTap={{ scale: 0.98 }}
-        transition={{ type: "spring", stiffness: 400, damping: 28 }}
-        className={`${t.surface} p-5 rounded-2xl border ${t.border} ${t.borderHover} ${t.cardHover} shadow-sm cursor-pointer h-full transition-all duration-300`}
-      >
+      <motion.div whileHover={{ y: -4, scale: 1.01 }} whileTap={{ scale: 0.98 }} transition={{ type: "spring", stiffness: 400, damping: 28 }} className={`${t.surface} p-5 rounded-2xl border ${t.border} ${t.borderHover} ${t.cardHover} shadow-sm cursor-pointer h-full transition-all duration-300`}>
         <div className="flex items-start justify-between gap-2 mb-5">
-          <span className={`text-[9px] font-black ${t.textAccent} uppercase tracking-widest leading-tight line-clamp-2 flex-1`}>
-            {match.tournament_name || "Major Series"}
-          </span>
+          <span className={`text-[9px] font-black ${t.textAccent} uppercase tracking-widest leading-tight line-clamp-2 flex-1`}>{match.tournament_name || "Major Series"}</span>
           <LiveBadge t={t} />
         </div>
         <div className="flex items-center gap-3">
@@ -292,12 +261,7 @@ function LiveMatchCard({ match, t }: { match: Match; t: T }) {
 function RecentMatchRow({ match, t }: { match: Match; t: T }) {
   return (
     <Link href={`/match/${match.id}`} className="block">
-      <motion.div
-        whileHover={{ x: 4 }}
-        whileTap={{ scale: 0.99 }}
-        transition={{ type: "spring", stiffness: 400, damping: 30 }}
-        className={`${t.surface} p-4 rounded-xl border ${t.border} ${t.borderHover} ${t.cardHover} transition-all duration-300 cursor-pointer`}
-      >
+      <motion.div whileHover={{ x: 4 }} whileTap={{ scale: 0.99 }} transition={{ type: "spring", stiffness: 400, damping: 30 }} className={`${t.surface} p-4 rounded-xl border ${t.border} ${t.borderHover} ${t.cardHover} transition-all duration-300 cursor-pointer`}>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
           <div className="flex sm:hidden items-center gap-2 flex-wrap">
             <span className={`px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-wider ${t.pill}`}>{match.tournament_name || "Tournament"}</span>
@@ -326,28 +290,22 @@ function RecentMatchRow({ match, t }: { match: Match; t: T }) {
 }
 
 // ─── TournamentCard ───────────────────────────────────────────────────────────
+// Find the TournamentCard component and replace it with:
 
 function TournamentCard({ tournament, t }: { tournament: Tournament; t: T }) {
   return (
-    <motion.div
-      whileHover={{ scale: 1.015 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 400, damping: 28 }}
-      className={`${t.surface} p-4 rounded-xl border ${t.border} ${t.borderHover} ${t.cardHover} transition-all duration-300 cursor-pointer`}
-    >
-      <div className="flex items-center gap-3">
-        <div className={`w-11 h-11 rounded-xl ${t.avatarBg} border flex items-center justify-center overflow-hidden shrink-0 transition-all duration-500`}>
-          {tournament.logo_url
-            ? <img src={tournament.logo_url} alt={tournament.name} className="w-full h-full object-cover" />
-            : <span className={`text-lg font-black ${t.textAccent}`}>T</span>}
+    <Link href={`/tournament/${tournament.id}`} className="block">
+      <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.98 }} transition={{ type: "spring", stiffness: 400, damping: 28 }} className={`${t.surface} p-4 rounded-xl border ${t.border} ${t.borderHover} ${t.cardHover} transition-all duration-300 cursor-pointer`}>
+        <div className="flex items-center gap-3">
+          <div className={`w-11 h-11 rounded-xl ${t.avatarBg} border flex items-center justify-center overflow-hidden shrink-0 transition-all duration-500`}>{tournament.logo_url ? <img src={tournament.logo_url} alt={tournament.name} className="w-full h-full object-cover" /> : <span className={`text-lg font-black ${t.textAccent}`}>T</span>}</div>
+          <div className="flex-1 min-w-0">
+            <h3 className={`text-xs font-black uppercase tracking-widest ${t.text} truncate transition-colors duration-500`}>{tournament.name}</h3>
+            {tournament.venue && <p className={`text-[9px] ${t.textMuted} font-bold uppercase truncate mt-0.5`}>{tournament.venue}</p>}
+          </div>
+          <StatusBadge status={tournament.status} t={t} />
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className={`text-xs font-black uppercase tracking-widest ${t.text} truncate transition-colors duration-500`}>{tournament.name}</h3>
-          {tournament.venue && <p className={`text-[9px] ${t.textMuted} font-bold uppercase truncate mt-0.5`}>{tournament.venue}</p>}
-        </div>
-        <StatusBadge status={tournament.status} t={t} />
-      </div>
-    </motion.div>
+      </motion.div>
+    </Link>
   );
 }
 
@@ -362,15 +320,9 @@ function TabBar({ active, onChange, counts, t }: { active: Tab; onChange: (tab: 
   return (
     <div className={`flex lg:hidden rounded-2xl p-1 gap-1 mb-8 border transition-all duration-500 ${t.tabBg}`}>
       {tabs.map((tab) => (
-        <button
-          key={tab.key}
-          onClick={() => onChange(tab.key)}
-          className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all relative ${active === tab.key ? t.tabActive : t.tabInactive}`}
-        >
+        <button key={tab.key} onClick={() => onChange(tab.key)} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all relative ${active === tab.key ? t.tabActive : t.tabInactive}`}>
           {tab.label}
-          {tab.key === "live" && counts.live > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[8px] flex items-center justify-center font-black">{counts.live}</span>
-          )}
+          {tab.key === "live" && counts.live > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[8px] flex items-center justify-center font-black">{counts.live}</span>}
         </button>
       ))}
     </div>
@@ -385,9 +337,7 @@ function SectionHeading({ label, count, countClass, t, isLive = false }: { label
       <div className="flex items-center gap-2.5">
         {isLive && <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />}
         <h2 className={`text-[10px] font-black uppercase tracking-[0.4em] transition-colors duration-500 ${t.sectionLabel}`}>{label}</h2>
-        {count !== undefined && count > 0 && (
-          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black border transition-all duration-500 ${countClass}`}>{count}</span>
-        )}
+        {count !== undefined && count > 0 && <span className={`px-2 py-0.5 rounded-full text-[9px] font-black border transition-all duration-500 ${countClass}`}>{count}</span>}
       </div>
       <div className={`h-px flex-1 bg-gradient-to-r ${t.divider} to-transparent`} />
     </div>
@@ -406,8 +356,15 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [draftSearch, setDraftSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>("live");
+  // ✅ Initial activeTab based on screen width (one‑time only)
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 1024) return "recent";
+    return "live";
+  });
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // ✅ No automatic switching on resize – user can now click any tab on any screen
+  // The original useEffect that forced tab changes has been removed.
 
   const fetchData = useCallback(async (query = "") => {
     setLoading(true);
@@ -448,40 +405,26 @@ export default function Dashboard() {
   };
 
   return (
-    <motion.div
-      animate={{ opacity: fading ? 0 : 1 }}
-      transition={{ duration: 0.16 }}
-      className={`min-h-screen font-sans transition-colors duration-500 ${t.bg} ${t.text} selection:bg-blue-500 selection:text-white`}
-    >
+    <motion.div animate={{ opacity: fading ? 0 : 1 }} transition={{ duration: 0.16 }} className={`min-h-screen font-sans transition-colors duration-500 ${t.bg} ${t.text} selection:bg-blue-500 selection:text-white`}>
       {/* Hero section – now with proper top padding (no fixed navbar) */}
       <section className="relative pt-20 sm:pt-24 pb-16 sm:pb-20 px-4 sm:px-6 overflow-hidden">
         <div className={`absolute inset-0 bg-gradient-to-b ${t.heroGrad} to-transparent pointer-events-none transition-all duration-500`} />
         <div className="max-w-3xl mx-auto relative z-10 text-center">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-10">
-            <div className={`inline-block px-4 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-[0.35em] mb-5 transition-all duration-500 ${t.heroBadge}`}>
-              Next-Gen Cricket Tracking
-            </div>
+            <div className={`inline-block px-4 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-[0.35em] mb-5 transition-all duration-500 ${t.heroBadge}`}>Next-Gen Cricket Tracking</div>
             <h1 className={`text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tighter uppercase italic mb-6 leading-none transition-colors duration-500 ${t.text}`}>
               FIND YOUR <span className={`transition-colors duration-500 ${t.textAccent}`}>MATCH</span>
             </h1>
           </motion.div>
 
           <form onSubmit={handleSearch} className="relative group max-w-2xl mx-auto">
-            <input
-              ref={searchRef}
-              type="text"
-              placeholder="Search teams, tournaments or venues…"
-              value={draftSearch}
-              onChange={(e) => setDraftSearch(e.target.value)}
-              className={`w-full border-2 rounded-2xl py-4 sm:py-5 pl-12 pr-28 sm:pr-32 focus:outline-none focus:ring-4 focus:ring-blue-400/15 transition-all duration-500 text-base sm:text-lg ${t.searchBg}`}
-            />
+            <input ref={searchRef} type="text" placeholder="Search teams, tournaments or venues…" value={draftSearch} onChange={(e) => setDraftSearch(e.target.value)} className={`w-full border-2 rounded-2xl py-4 sm:py-5 pl-12 pr-28 sm:pr-32 focus:outline-none focus:ring-4 focus:ring-blue-400/15 transition-all duration-500 text-base sm:text-lg ${t.searchBg}`} />
             <svg className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none transition-colors duration-500 ${t.textMuted}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <AnimatePresence>
               {draftSearch && (
-                <motion.button type="button" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
-                  onClick={clearSearch} className={`absolute right-[5.5rem] sm:right-24 top-1/2 -translate-y-1/2 p-1 ${t.textMuted} hover:opacity-60 transition-opacity`} aria-label="Clear">
+                <motion.button type="button" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} onClick={clearSearch} className={`absolute right-[5.5rem] sm:right-24 top-1/2 -translate-y-1/2 p-1 ${t.textMuted} hover:opacity-60 transition-opacity`} aria-label="Clear">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -498,7 +441,9 @@ export default function Dashboard() {
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="flex items-center justify-center gap-2 mt-4 flex-wrap">
                 <span className={`text-[10px] font-bold uppercase tracking-wider ${t.textMuted}`}>Results for:</span>
                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${t.pillAccent}`}>{searchTerm}</span>
-                <button onClick={clearSearch} className={`${t.textMuted} text-[10px] font-black uppercase tracking-wider hover:opacity-60 transition-opacity`}>✕ Clear</button>
+                <button onClick={clearSearch} className={`${t.textMuted} text-[10px] font-black uppercase tracking-wider hover:opacity-60 transition-opacity`}>
+                  ✕ Clear
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
@@ -509,10 +454,11 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-24">
         <AnimatePresence>
           {error && (
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="mb-8 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-center text-red-500 text-sm">
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mb-8 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-center text-red-500 text-sm">
               {error}
-              <button onClick={() => fetchData(searchTerm)} className="ml-3 underline underline-offset-2 opacity-70 hover:opacity-100 transition-opacity">Retry</button>
+              <button onClick={() => fetchData(searchTerm)} className="ml-3 underline underline-offset-2 opacity-70 hover:opacity-100 transition-opacity">
+                Retry
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -524,7 +470,9 @@ export default function Dashboard() {
           <SectionHeading label="Live Broadcast" count={!loading ? counts.live : undefined} countClass={t.countLive} t={t} isLive />
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-              {[1, 2, 3].map((i) => <SkeletonCard key={i} t={t} />)}
+              {[1, 2, 3].map((i) => (
+                <SkeletonCard key={i} t={t} />
+              ))}
             </div>
           ) : counts.live === 0 ? (
             <div className={`${t.surface} rounded-2xl border border-dashed ${t.borderDashed} transition-all duration-500`}>
@@ -546,7 +494,11 @@ export default function Dashboard() {
           <div className={`lg:col-span-2 ${activeTab !== "recent" ? "hidden lg:block" : ""}`}>
             <SectionHeading label="Recently Concluded" count={!loading ? counts.recent : undefined} countClass={t.countRecent} t={t} />
             {loading ? (
-              <div className="space-y-3">{[1, 2, 3, 4].map((i) => <SkeletonCard key={i} t={t} />)}</div>
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <SkeletonCard key={i} t={t} />
+                ))}
+              </div>
             ) : counts.recent === 0 ? (
               <div className={`${t.surface} rounded-2xl border border-dashed ${t.borderDashed} transition-all duration-500`}>
                 <EmptyState message="No completed matches found" t={t} />
@@ -565,7 +517,11 @@ export default function Dashboard() {
           <div className={`${activeTab !== "tournaments" ? "hidden lg:block" : ""}`}>
             <SectionHeading label="Tournaments" count={!loading ? counts.tournaments : undefined} countClass={t.countTourneys} t={t} />
             {loading ? (
-              <div className="space-y-3">{[1, 2, 3].map((i) => <SkeletonCard key={i} t={t} />)}</div>
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <SkeletonCard key={i} t={t} />
+                ))}
+              </div>
             ) : counts.tournaments === 0 ? (
               <div className={`${t.surface} rounded-2xl border border-dashed ${t.borderDashed} transition-all duration-500`}>
                 <EmptyState message="No tournaments found" t={t} />
@@ -587,7 +543,7 @@ export default function Dashboard() {
       <footer className={`py-16 border-t text-center transition-all duration-500 ${t.footer}`}>
         <div className="max-w-7xl mx-auto px-6">
           <div className={`text-2xl sm:text-3xl font-black tracking-tighter uppercase italic mb-4 select-none transition-colors duration-500 ${t.footerLogo}`}>SCORY</div>
-          <p className={`text-[9px] font-black uppercase tracking-[0.6em] opacity-50 transition-colors duration-500 ${t.textMuted}`}>End-to-End Real-Time Analytics Engine</p>
+          <p className={`text-[9px] font-black uppercase tracking-[0.6em] opacity-50 transition-colors duration-500 ${t.textMuted}`}>End-to-End Real-Time Analytics Engine Made By UDP</p>
         </div>
       </footer>
 
