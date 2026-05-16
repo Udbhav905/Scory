@@ -1,5 +1,7 @@
 import { query } from "@/app/lib/db";
 
+export const dynamic = 'force-dynamic';  
+
 interface MatchRow {
   id: number;
   updated_at: string | null;
@@ -11,7 +13,7 @@ interface TournamentRow {
 }
 
 export default async function sitemap() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
 
   const matches = await query(
     "SELECT id, updated_at FROM matches WHERE status != 'scheduled'"
