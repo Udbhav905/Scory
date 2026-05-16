@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { query } from "@/app/lib/db";
+interface InningsRow {
+  id: number;
+}
 
 // GET matches for a tournament
 export async function GET(request: Request) {
@@ -122,8 +125,8 @@ export async function DELETE(request: Request) {
   // Delete dependent ball events, innings, then the match
   // 1. Get innings IDs for the match
   const inningsRes = await query("SELECT id FROM innings WHERE match_id = $1", [id]);
-  const inningsIds = inningsRes.rows.map((row) => row.id);
 
+const inningsIds = inningsRes.rows.map((row: InningsRow) => row.id);
   if (inningsIds.length > 0) {
     // Delete ball events for these innings
     await query("DELETE FROM ball_events WHERE innings_id = ANY($1)", [inningsIds]);
