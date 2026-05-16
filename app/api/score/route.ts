@@ -5,15 +5,9 @@ import { pusherServer } from "@/app/lib/pusher";
 
 async function updateInningsTotals(inningsId: number) {
   // If no balls, reset all
-  const ballCount = await query(
-    "SELECT COUNT(*) as count FROM ball_events WHERE innings_id = $1",
-    [inningsId]
-  );
+  const ballCount = await query("SELECT COUNT(*) as count FROM ball_events WHERE innings_id = $1", [inningsId]);
   if (ballCount.rows[0].count === 0) {
-    await query(
-      "UPDATE innings SET total_runs = 0, total_wickets = 0, overs = 0 WHERE id = $1",
-      [inningsId]
-    );
+    await query("UPDATE innings SET total_runs = 0, total_wickets = 0, overs = 0 WHERE id = $1", [inningsId]);
     return;
   }
 
@@ -22,7 +16,7 @@ async function updateInningsTotals(inningsId: number) {
     `SELECT COALESCE(SUM(runs + extra_runs), 0) as runs,
             COALESCE(SUM(CASE WHEN is_wicket THEN 1 ELSE 0 END), 0) as wickets
      FROM ball_events WHERE innings_id = $1`,
-    [inningsId]
+    [inningsId],
   );
 
   // Total overs = total legal deliveries / 6
@@ -31,16 +25,16 @@ async function updateInningsTotals(inningsId: number) {
      FROM ball_events 
      WHERE innings_id = $1 
        AND (extra_type IS NULL OR extra_type NOT IN ('wide', 'no ball'))`,
-    [inningsId]
+    [inningsId],
   );
   const legalDeliveries = parseInt(oversRes.rows[0].legal_deliveries, 10);
-  const overs = legalDeliveries / 6;   // → e.g., 5 deliveries → 0.8333
+  const overs = legalDeliveries / 6; // → e.g., 5 deliveries → 0.8333
 
   await query(
     `UPDATE innings 
      SET total_runs = $1, total_wickets = $2, overs = $3 
      WHERE id = $4`,
-    [runsRes.rows[0].runs, runsRes.rows[0].wickets, overs, inningsId]
+    [runsRes.rows[0].runs, runsRes.rows[0].wickets, overs, inningsId],
   );
 }
 
@@ -50,8 +44,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { innings_id, over_number, ball_number, batsman_id, bowler_id, runs, is_wicket, wicket_type, extra_type, extra_runs } = await request.json();
-
+  const {
+    innings_id,
+    over_number,
+    ball_number,
+    batsman_id,
+    bowler_id,
+    runs,
+    is_wicket,
+    wicket_type,
+    extra_type,
+    extra_runs,
+    dismissed_batsman_id,
+    new_batsman_id, // add these
+  } = await request.json();
   if (!innings_id || over_number === undefined || ball_number === undefined) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
@@ -59,7 +65,7 @@ export async function POST(request: Request) {
   // Sanitise runs – ensure non-negative numbers
   const safeRuns = Math.max(0, runs || 0);
   const safeExtraRuns = Math.max(0, extra_runs || 0);
-if (!session?.user?.email) {
+  if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -69,16 +75,16 @@ if (!session?.user?.email) {
      JOIN matches m ON i.match_id = m.id
      JOIN tournaments t ON m.tournament_id = t.id
      WHERE i.id = $1 AND t.user_id = (SELECT id FROM users WHERE email = $2)`,
-    [innings_id, session.user.email]
+    [innings_id, session.user.email],
   );
 
   if (verify.rows.length === 0) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
-
   await query(
-    `INSERT INTO ball_events (innings_id, over_number, ball_number, batsman_id, bowler_id, runs, is_wicket, wicket_type, extra_type, extra_runs)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    `INSERT INTO ball_events 
+    (innings_id, over_number, ball_number, batsman_id, bowler_id, runs, is_wicket, wicket_type, extra_type, extra_runs, dismissed_batsman_id, new_batsman_id)
+   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
     [
       innings_id,
       over_number,
@@ -90,7 +96,9 @@ if (!session?.user?.email) {
       wicket_type || null,
       extra_type || null,
       safeExtraRuns,
-    ]
+      dismissed_batsman_id ?? null, // add this
+      new_batsman_id ?? null, // add this
+    ],
   );
 
   await updateInningsTotals(innings_id);
@@ -118,10 +126,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "inningsId required" }, { status: 400 });
   }
 
-  const balls = await query(
-    "SELECT * FROM ball_events WHERE innings_id = $1 ORDER BY over_number, ball_number",
-    [inningsId]
-  );
+  const balls = await query("SELECT * FROM ball_events WHERE innings_id = $1 ORDER BY over_number, ball_number", [inningsId]);
 
   return NextResponse.json(balls.rows);
 }
@@ -132,17 +137,11 @@ export async function DELETE(request: Request) {
   const session = await auth();
 
   if (!session) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (!session?.user?.email) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -152,10 +151,7 @@ export async function DELETE(request: Request) {
 
   // Validate
   if (isNaN(inningsId)) {
-    return NextResponse.json(
-      { error: "Invalid inningsId" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Invalid inningsId" }, { status: 400 });
   }
 
   // Verify ownership
@@ -167,14 +163,11 @@ export async function DELETE(request: Request) {
      AND t.user_id = (
        SELECT id FROM users WHERE email = $2
      )`,
-    [inningsId, session.user.email]
+    [inningsId, session.user.email],
   );
 
   if (verify.rows.length === 0) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   // Delete latest ball
@@ -187,7 +180,7 @@ export async function DELETE(request: Request) {
        ORDER BY over_number DESC, ball_number DESC
        LIMIT 1
      )`,
-    [inningsId]
+    [inningsId],
   );
 
   // Update totals
@@ -204,6 +197,6 @@ export async function DELETE(request: Request) {
   }
 
   return NextResponse.json({
-    message: "Last ball undone"
+    message: "Last ball undone",
   });
 }

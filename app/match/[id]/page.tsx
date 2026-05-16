@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import PlayersManager from "./PlayersManager";
 import TossManager from "./TossManager";
 import Scorecard from "./Scorecard";
+import Link from "next/link";
 
 export default function MatchDetailPage() {
   const { id } = useParams();
@@ -57,45 +58,25 @@ export default function MatchDetailPage() {
         <div className="flex gap-4 border-b border-[#28396C] mb-6 overflow-x-auto custom-scrollbar">
           {isOwner && (
             <>
-              <button onClick={() => setActiveTab("players")} className={`pb-2 px-1 font-bold uppercase tracking-wide transition whitespace-nowrap ${activeTab === "players" ? "text-[#B5E18B] border-b-2 border-[#B5E18B]" : "text-gray-400"}`}>Players</button>
-              <button onClick={() => setActiveTab("toss")} className={`pb-2 px-1 font-bold uppercase tracking-wide transition whitespace-nowrap ${activeTab === "toss" ? "text-[#B5E18B] border-b-2 border-[#B5E18B]" : "text-gray-400"}`}>Toss</button>
+              <button onClick={() => setActiveTab("players")} className={`pb-2 px-1 font-bold uppercase tracking-wide transition whitespace-nowrap ${activeTab === "players" ? "text-[#B5E18B] border-b-2 border-[#B5E18B]" : "text-gray-400"}`}>
+                Players
+              </button>
+              <button onClick={() => setActiveTab("toss")} className={`pb-2 px-1 font-bold uppercase tracking-wide transition whitespace-nowrap ${activeTab === "toss" ? "text-[#B5E18B] border-b-2 border-[#B5E18B]" : "text-gray-400"}`}>
+                Toss
+              </button>
             </>
           )}
-          <button onClick={() => setActiveTab("scorecard")} className={`pb-2 px-1 font-bold uppercase tracking-wide transition whitespace-nowrap ${activeTab === "scorecard" ? "text-[#B5E18B] border-b-2 border-[#B5E18B]" : "text-gray-400"}`}>Scorecard</button>
+          <button onClick={() => setActiveTab("scorecard")} className={`pb-2 px-1 font-bold uppercase tracking-wide transition whitespace-nowrap ${activeTab === "scorecard" ? "text-[#B5E18B] border-b-2 border-[#B5E18B]" : "text-gray-400"}`}>
+            Scorecard
+          </button>
+           
+        <Link href={`/match/${id}/analysis`}>Analysis</Link>
         </div>
 
         {/* Tab Content */}
-        {activeTab === "players" && isOwner && (
-          <PlayersManager
-            matchId={parseInt(id as string)}
-            teamA={match.team_a_name}
-            teamALogo={match.team_a_logo_url}
-            teamB={match.team_b_name}
-            teamBLogo={match.team_b_logo_url}
-          />
-        )}
-        {activeTab === "toss" && isOwner && (
-          <TossManager
-            matchId={parseInt(id as string)}
-            teamA={match.team_a_name}
-            teamALogo={match.team_a_logo_url}
-            teamB={match.team_b_name}
-            teamBLogo={match.team_b_logo_url}
-            onTossComplete={() => fetchMatch()}
-          />
-        )}
-        {activeTab === "scorecard" && (
-          <Scorecard
-            matchId={parseInt(id as string)}
-            teamA={match.team_a_name}
-            teamALogo={match.team_a_logo_url}
-            teamB={match.team_b_name}
-            teamBLogo={match.team_b_logo_url}
-            totalOvers={match.total_overs || 20}
-            matchStatus={match.status}
-            isOwner={isOwner}
-          />
-        )}
+        {activeTab === "players" && isOwner && <PlayersManager matchId={parseInt(id as string)} teamA={match.team_a_name} teamALogo={match.team_a_logo_url} teamB={match.team_b_name} teamBLogo={match.team_b_logo_url} />}
+        {activeTab === "toss" && isOwner && <TossManager matchId={parseInt(id as string)} teamA={match.team_a_name} teamALogo={match.team_a_logo_url} teamB={match.team_b_name} teamBLogo={match.team_b_logo_url} onTossComplete={() => fetchMatch()} />}
+        {activeTab === "scorecard" && <Scorecard matchId={parseInt(id as string)} teamA={match.team_a_name} teamALogo={match.team_a_logo_url} teamB={match.team_b_name} teamBLogo={match.team_b_logo_url} totalOvers={match.total_overs || 20} matchStatus={match.status} isOwner={isOwner} />}
       </div>
     </div>
   );
