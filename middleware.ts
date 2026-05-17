@@ -3,7 +3,17 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export async function middleware(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const isProd = process.env.NODE_ENV === "production";
+  const cookieName = isProd ? "__Secure-authjs.session-token" : "authjs.session-token";
+
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+    secureCookie: isProd,
+    cookieName: cookieName,
+    salt: cookieName,
+  });
+
   const { pathname } = req.nextUrl;
 
   const protectedPaths = ["/profile", "/dashboard"];

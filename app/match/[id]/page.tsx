@@ -3,7 +3,7 @@ import MatchDetailClient from "./MatchDetailClient";
 import { query } from "@/app/lib/db";
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 async function getMatchData(id: number) {
@@ -12,7 +12,8 @@ async function getMatchData(id: number) {
 }
 
 export async function generateMetadata({ params }: Props) {
-  const id = parseInt(params.id);
+  const { id: idStr } = await params;
+  const id = parseInt(idStr);
   // ✅ Guard against NaN
   if (isNaN(id)) notFound();
 
@@ -26,7 +27,8 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function Page({ params }: Props) {
-  const id = parseInt(params.id);
+  const { id: idStr } = await params;
+  const id = parseInt(idStr);
   // ✅ Guard against NaN
   if (isNaN(id)) notFound();
 
