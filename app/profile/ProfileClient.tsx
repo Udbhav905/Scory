@@ -13,14 +13,12 @@ export default function ProfileClient({ session }: ProfileClientProps) {
   const [selectedTournament, setSelectedTournament] = useState<any>(null);
   const [viewMatches, setViewMatches] = useState(false);
 
-  // No useSession, no redirect effect – the server already protects the route
+  // ✅ No useSession, no redirect useEffect
 
   return (
     <div className="min-h-screen bg-[#0a0c12] py-8 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tighter text-[#e8eaf0] mb-8">
-          Dashboard
-        </h1>
+        <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tighter text-[#e8eaf0] mb-8">Dashboard</h1>
 
         <div className="flex gap-6 border-b border-[#28396C] mb-8">
           <button
@@ -70,13 +68,8 @@ export default function ProfileClient({ session }: ProfileClientProps) {
   );
 }
 
-// Paste your existing ProfileSection, TournamentsSection, MatchesManager here unchanged
-// (they do not depend on session)
-// ================== PROFILE SECTION (unchanged) ==================
-// ... paste your ProfileSection, TournamentsSection, MatchesManager exactly as they are
-// (they are fine and don't need any session)
+// ================== COPY YOUR EXISTING ProfileSection, TournamentsSection, MatchesManager HERE ==================
 
-// ================== PROFILE SECTION (responsive) ==================
 function ProfileSection() {
   const [user, setUser] = useState({ name: "", email: "", mobile: "" });
   const [loading, setLoading] = useState(true);

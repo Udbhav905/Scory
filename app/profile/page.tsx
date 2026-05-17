@@ -2,7 +2,10 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import ProfileClient from "./ProfileClient";
 
-export const dynamic = "force-dynamic"; // Prevent static generation
+// CRITICAL: Prevent static generation
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 export default async function ProfilePage() {
   const session = await auth();
