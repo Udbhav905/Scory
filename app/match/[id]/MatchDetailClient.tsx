@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import PlayersManager from "./PlayersManager";
 import TossManager from "./TossManager";
@@ -13,8 +13,10 @@ interface Props {
   matchId: number;
 }
 
-export default function MatchDetailClient({ matchi, matchId }: Props) {  const { id } = useParams();
+export default function MatchDetailClient({ matchi, matchId }: Props) { 
+   const { id } = useParams();
   const { data: session, status: authStatus } = useSession();
+  
   const [match, setMatch] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"players" | "toss" | "scorecard">("scorecard");
@@ -23,8 +25,11 @@ export default function MatchDetailClient({ matchi, matchId }: Props) {  const {
   useEffect(() => {
     fetchMatch();
   }, [id]);
+  const numericId = parseInt(id as string);
+  if (isNaN(numericId)) notFound();
 
   const fetchMatch = async () => {
+     if (isNaN(numericId)) return;
     const res = await fetch(`/api/matches/${id}`);
     if (res.ok) {
       const data = await res.json();
