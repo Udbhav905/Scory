@@ -289,7 +289,7 @@ export default function Header() {
               )}
 
               {/* Mobile hamburger */}
-              <button onClick={() => setMobileMenuOpen((v) => !v)} className="md:hidden w-9 h-9 rounded-xl bg-white/5 border border-white/[0.06] flex items-center justify-center text-[#8090A4] hover:text-white hover:bg-white/10 transition-all duration-200" aria-label="Toggle menu">
+              {/* <button onClick={() => setMobileMenuOpen((v) => !v)} className="md:hidden w-9 h-9 rounded-xl bg-white/5 border border-white/[0.06] flex items-center justify-center text-[#8090A4] hover:text-white hover:bg-white/10 transition-all duration-200" aria-label="Toggle menu">
                 {mobileMenuOpen ? (
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -299,7 +299,7 @@ export default function Header() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
                 )}
-              </button>
+              </button> */}
             </div>
           </div>
 

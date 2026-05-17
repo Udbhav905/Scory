@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     const inningsMap: Record<number, any[]> = {};
     if (matchIds.length > 0) {
       const inningsRes = await query(
-        `SELECT id, match_id, innings_number, batting_team, bowling_team, total_runs, total_wickets, overs, status 
+        `SELECT id, match_id, innings_number, batting_team, bowling_team, total_runs, total_wickets, overs 
          FROM innings 
          WHERE match_id = ANY($1) 
          ORDER BY innings_number ASC`,
