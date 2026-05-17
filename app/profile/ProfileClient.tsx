@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import type { Session } from "next-auth";
 
 interface ProfileClientProps {
-  session?: any; // optional, you can remove if not used
+  session: Session;
 }
 
 export default function ProfileClient({ session }: ProfileClientProps) {
@@ -12,10 +13,14 @@ export default function ProfileClient({ session }: ProfileClientProps) {
   const [selectedTournament, setSelectedTournament] = useState<any>(null);
   const [viewMatches, setViewMatches] = useState(false);
 
+  // No useSession, no redirect effect – the server already protects the route
+
   return (
     <div className="min-h-screen bg-[#0a0c12] py-8 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tighter text-[#e8eaf0] mb-8">Dashboard</h1>
+        <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tighter text-[#e8eaf0] mb-8">
+          Dashboard
+        </h1>
 
         <div className="flex gap-6 border-b border-[#28396C] mb-8">
           <button
@@ -65,6 +70,8 @@ export default function ProfileClient({ session }: ProfileClientProps) {
   );
 }
 
+// Paste your existing ProfileSection, TournamentsSection, MatchesManager here unchanged
+// (they do not depend on session)
 // ================== PROFILE SECTION (unchanged) ==================
 // ... paste your ProfileSection, TournamentsSection, MatchesManager exactly as they are
 // (they are fine and don't need any session)
