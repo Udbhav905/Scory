@@ -936,7 +936,7 @@ export default function Dashboard() {
             {error && <ErrorBanner error={error} onRetry={() => fetchData(searchTerm)} />}
           </AnimatePresence>
 
-          <DesktopTabPills active={activeTab} onChange={setActiveTab} counts={counts} t={t} />
+          {/* <DesktopTabPills active={activeTab} onChange={setActiveTab} counts={counts} t={t} /> */}
 
           {/* Live */}
           <section className={`mb-14 ${activeTab !== "live" ? "hidden lg:block" : ""}`}>
