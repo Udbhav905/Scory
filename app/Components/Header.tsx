@@ -260,36 +260,20 @@ export default function Header() {
                         <p className="text-[10px] text-[#4a5568] truncate mt-0.5">{session.user?.email}</p>
                       </div>
                       <div className="py-1">
-                         <button
-                          onClick={() => {
-                            setDropdownOpen(false);
-                            router.push("/profile");
+                        <button
+                          onClick={async () => {
+                            setDropdownOpen(false); // close dropdown immediately
+                            // Wait a microtask for React to finish unmounting the dropdown
+                            await Promise.resolve();
+                            router.push("/profile"); // client‑side navigation – no refresh
                           }}
-                          className="flex items-center gap-2.5 px-4 py-2.5 w-full text-left text-sm text-[#8090A4] hover:text-[#E0E8F0] hover:bg-white/5 transition-colors duration-150"
+                          className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-[#8090A4] hover:text-[#E0E8F0] hover:bg-white/5 transition-colors duration-150"
                         >
                           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
                           <span className="text-[11px] font-black uppercase tracking-wider">Profile</span>
-                        </button> 
-                        <Link
-  href="/profile"
-  onClick={(e) => {
-    // Prevent the dropdown from closing before navigation
-    e.preventDefault();           // stop default Link behavior temporarily
-    setDropdownOpen(false);       // close dropdown immediately (UI)
-    // Use window.location to guarantee navigation after a tiny delay
-    setTimeout(() => {
-      window.location.href = "/profile";
-    }, 10);
-  }}
-  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-[#8090A4] hover:text-[#E0E8F0] hover:bg-white/5 transition-colors duration-150"
->
-  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-  </svg>
-  <span className="text-[11px] font-black uppercase tracking-wider">Profile</span>
-</Link>
+                        </button>
 
                         <button
                           onClick={() => {
