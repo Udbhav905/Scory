@@ -39,7 +39,9 @@ export async function GET(request: Request) {
       tournaments: tournaments.rows,
     });
   } catch (err) {
+    console.log("DB URL : ",process.env.DATABASE_URL);
     console.error("DB ERROR:", err);
+    
 
     const message =
       err instanceof Error ? err.message : "Unknown error";
