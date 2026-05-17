@@ -9,7 +9,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}></html>
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "https://yourdomain.com"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "https://scory-one.vercel.app/"),
   title: {
     default: "Scory – Live Cricket Scores & Analytics",
     template: "%s | Scory",
