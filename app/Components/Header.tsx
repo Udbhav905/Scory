@@ -30,7 +30,9 @@ interface DashboardMatch {
   team_b_name: string;
   status: string;
 }
+export const dynamic = "force-dynamic"; 
 
+// (your existing imports and code, wrapped in try-catch)
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatScore(innings: InningsRow[]): string | null {
@@ -174,7 +176,13 @@ export default function Header() {
         dropdownRef.current &&
         !dropdownRef.current.contains(e.target as Node)
       ) {
-        setDropdownOpen(false);
+        // ✅ Do NOT close if the click is on a link inside the dropdown
+        // This prevents navigation from being blocked
+        const target = e.target as HTMLElement;
+        const isLink = target.closest('a[href]');
+        if (!isLink) {
+          setDropdownOpen(false);
+        }
       }
     };
     document.addEventListener("mousedown", handler);
@@ -201,6 +209,7 @@ export default function Header() {
       ? []
       : [...tickerItems, ...tickerItems];
 
+  // Navigation links (optional, uncomment if needed)
   const navLinks = [
     { href: "/", label: "Home" },
     { href: "/profile", label: "Dashboard" },
@@ -257,20 +266,17 @@ export default function Header() {
             </Link>
 
             {/* ── Desktop nav links ──────────────────────────────────────────── */}
-            <nav className="hidden md:flex items-center gap-6">
-              {navLinks.map((l) => (
+            {/* (Uncomment if you want visible nav links) */}
+            {/* <div className="hidden md:flex items-center gap-6">
+              {navLinks.map((link) => (
                 <NavLink
-                  key={l.href}
-                  href={l.href}
-                  label={l.label}
-                  active={
-                    l.href === "/"
-                      ? pathname === "/"
-                      : pathname.startsWith(l.href)
-                  }
+                  key={link.href}
+                  href={link.href}
+                  label={link.label}
+                  active={pathname === link.href}
                 />
               ))}
-            </nav>
+            </div> */}
 
             {/* ── Right controls ─────────────────────────────────────────────── */}
             <div className="flex items-center gap-2 sm:gap-3">
@@ -317,7 +323,11 @@ export default function Header() {
                       <div className="py-1">
                         <Link
                           href="/profile"
-                          onClick={() => setDropdownOpen(false)}
+                          onClick={() => {
+                            // ✅ Close dropdown after navigation starts
+                            // Use setTimeout to avoid interfering with the click event
+                            setTimeout(() => setDropdownOpen(false), 0);
+                          }}
                           className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#8090A4] hover:text-[#E0E8F0] hover:bg-white/5 transition-colors duration-150"
                         >
                           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
