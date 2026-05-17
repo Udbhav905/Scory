@@ -4,16 +4,8 @@ import { query } from "@/app/lib/db";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const searchTerm = searchParams.get("query") || "";
-  try {
-    const data = await query("SELECT * FROM matches");
-    return NextResponse.json(data.rows);
-  } catch (err:any) {
-    console.error("DB ERROR:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
 
   try {
-    // 1. Live matches (statuses that indicate an ongoing match)
     const liveMatches = await query(
       `SELECT m.*, t.name as tournament_name 
        FROM matches m 
@@ -24,7 +16,6 @@ export async function GET(request: Request) {
       [`%${searchTerm}%`],
     );
 
-    // 2. Completed matches (status = 'completed')
     const recentMatches = await query(
       `SELECT m.*, t.name as tournament_name 
        FROM matches m 
@@ -35,7 +26,6 @@ export async function GET(request: Request) {
       [`%${searchTerm}%`],
     );
 
-    // 3. **ALL tournaments** – removed the status filter
     const tournaments = await query(
       `SELECT * FROM tournaments 
        WHERE (name ILIKE $1 OR venue ILIKE $1)
@@ -48,8 +38,12 @@ export async function GET(request: Request) {
       recentMatches: recentMatches.rows,
       tournaments: tournaments.rows,
     });
-  } catch (err:any) {
-    console.error(err);
-    return NextResponse.json({ error: "Failed to fetch dashboard data" }, { status: 500 });
+  } catch (err) {
+    console.error("DB ERROR:", err);
+
+    const message =
+      err instanceof Error ? err.message : "Unknown error";
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
