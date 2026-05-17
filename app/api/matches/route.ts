@@ -42,11 +42,40 @@ export async function POST(request: Request) {
 
   const userId = await getUserId(session);
   const verify = await query(
-    "SELECT id FROM tournaments WHERE id = $1 AND user_id = $2",
+    "SELECT id, start_date, end_date FROM tournaments WHERE id = $1 AND user_id = $2",
     [tournament_id, userId]
   );
   if (verify.rows.length === 0) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  const tournament = verify.rows[0];
+
+  if (match_date) {
+    const matchTime = new Date(match_date).getTime();
+    const currentTime = new Date().getTime();
+
+    // 1. Time must be at least 1 minute in the future (next minute from current is allowed)
+    if (matchTime < currentTime + 59000) {
+      return NextResponse.json(
+        { error: "Match date and time must be at least 1 minute in the future from now" },
+        { status: 400 }
+      );
+    }
+
+    // 2. Must be within the tournament start and end dates
+    if (tournament.start_date && new Date(match_date) < new Date(tournament.start_date)) {
+      return NextResponse.json(
+        { error: "Match date cannot be before the tournament start date" },
+        { status: 400 }
+      );
+    }
+    if (tournament.end_date && new Date(match_date) > new Date(tournament.end_date)) {
+      return NextResponse.json(
+        { error: "Match date cannot be after the tournament end date" },
+        { status: 400 }
+      );
+    }
   }
 
   const result = await query(

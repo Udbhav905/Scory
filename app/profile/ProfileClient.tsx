@@ -495,6 +495,15 @@ function MatchesManager({ tournament, onBack }: { tournament: any; onBack: () =>
     // Validate match date against tournament start/end dates
     if (matchForm.match_date) {
       const matchDate = new Date(matchForm.match_date);
+      const currentTime = new Date();
+
+      // 1. Must be a future date/time (at least 1 minute from now)
+      if (matchDate.getTime() < currentTime.getTime() + 59000) {
+        alert("Match date and time must be at least 1 minute in the future from now.");
+        return;
+      }
+
+      // 2. Must be within the tournament schedule
       const start = tournament.start_date ? new Date(tournament.start_date) : null;
       const end = tournament.end_date ? new Date(tournament.end_date) : null;
       if (start && matchDate < start) {
@@ -546,7 +555,19 @@ function MatchesManager({ tournament, onBack }: { tournament: any; onBack: () =>
   };
 
   // Format date for min/max attributes
-  const minDate = tournament.start_date ? `${tournament.start_date.split("T")[0]}T00:00` : undefined;
+  const getMinDateTime = () => {
+    const now = new Date();
+    const timezoneOffset = now.getTimezoneOffset() * 60000;
+    const localNowStr = new Date(now.getTime() - timezoneOffset + 60000).toISOString().slice(0, 16); // +1 minute
+
+    if (tournament.start_date) {
+      const tourStartStr = tournament.start_date.slice(0, 16);
+      return tourStartStr > localNowStr ? tourStartStr : localNowStr;
+    }
+    return localNowStr;
+  };
+
+  const minDate = getMinDateTime();
   const maxDate = tournament.end_date ? `${tournament.end_date.split("T")[0]}T23:59` : undefined;
 
   return (

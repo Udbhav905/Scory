@@ -187,6 +187,7 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
   const [updating, setUpdating] = useState(false);
   const [viewInningsId, setViewInningsId] = useState<number | null>(null);
   const [viewBalls, setViewBalls] = useState<BallEvent[]>([]);
+  const [allBallEvents, setAllBallEvents] = useState<BallEvent[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [undoing, setUndoing] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -278,19 +279,26 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
     async (spinner = true, forceViewLatest = false) => {
       if (spinner) setUpdating(true);
       try {
-        const [pRes, iRes] = await Promise.all([fetch(`/api/players?matchId=${matchId}`).then((r) => r.json()), fetch(`/api/innings?matchId=${matchId}`).then((r) => r.json())]);
-        setPlayers(pRes);
-        setAllInnings(iRes);
-        if (iRes.length > 0) {
-          const inn = iRes[iRes.length - 1];
-          inn.overs = Number(inn.overs) || 0;
-          setCurrentInnings(inn);
-          const balls = await fetch(`/api/score?inningsId=${inn.id}`).then((r) => r.json());
-          setBallEvents(balls);
-          setViewInningsId((prev) => (prev === null || forceViewLatest ? inn.id : prev));
-        } else {
-          setCurrentInnings(null);
-          setBallEvents([]);
+        const res = await fetch(`/api/matches/${matchId}?full=true`);
+        if (res.ok) {
+          const data = await res.json();
+          setPlayers(data.players || []);
+          const iRes = data.innings || [];
+          setAllInnings(iRes);
+          const allBalls = data.ballEvents || [];
+          setAllBallEvents(allBalls);
+
+          if (iRes.length > 0) {
+            const inn = iRes[iRes.length - 1];
+            inn.overs = Number(inn.overs) || 0;
+            setCurrentInnings(inn);
+            const currentBalls = allBalls.filter((b: any) => b.innings_id === inn.id);
+            setBallEvents(currentBalls);
+            setViewInningsId((prev) => (prev === null || forceViewLatest ? inn.id : prev));
+          } else {
+            setCurrentInnings(null);
+            setBallEvents([]);
+          }
         }
       } catch (e) {
         console.error(e);
@@ -310,13 +318,12 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
 
   useEffect(() => {
     if (viewInningsId && viewInningsId !== currentInnings?.id) {
-      fetch(`/api/score?inningsId=${viewInningsId}`)
-        .then((r) => r.json())
-        .then(setViewBalls);
+      const viewBalls = allBallEvents.filter((b) => b.innings_id === viewInningsId);
+      setViewBalls(viewBalls);
     } else {
       setViewBalls([]);
     }
-  }, [viewInningsId, currentInnings?.id]);
+  }, [viewInningsId, currentInnings?.id, allBallEvents]);
 
   useEffect(() => {
     let pusher: any = null,

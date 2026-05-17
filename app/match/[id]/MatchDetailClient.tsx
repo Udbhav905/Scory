@@ -17,8 +17,8 @@ export default function MatchDetailClient({ matchi, matchId }: Props) {
    const { id } = useParams();
   const { data: session, status: authStatus } = useSession();
   
-  const [match, setMatch] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [match, setMatch] = useState<any>(matchi);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"players" | "toss" | "scorecard">("scorecard");
   const [isOwner, setIsOwner] = useState(false);
 
@@ -36,30 +36,55 @@ export default function MatchDetailClient({ matchi, matchId }: Props) {
       setMatch(data);
       setIsOwner(data.isOwner || false);
     }
-    setLoading(false);
   };
 
-  if (loading) return <div className="min-h-screen bg-[#080C10] text-white p-8">Loading match...</div>;
   if (!match) return <div className="min-h-screen bg-[#080C10] text-white p-8">Match not found.</div>;
 
   return (
     <div className="min-h-screen bg-[#080C10] py-8">
       <div className="max-w-6xl mx-auto px-4">
         {/* Match Header with Logos */}
-        <div className="flex flex-col sm:flex-row items-center gap-6 mb-8 bg-[#0B1322] p-6 rounded-3xl border border-[#28396C]">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-4">
-              {match.team_a_logo_url && <img src={match.team_a_logo_url} alt={match.team_a_name} className="w-16 h-16 rounded-full object-cover border-2 border-[#28396C]" />}
-              <h1 className="text-3xl font-['Barlow_Condensed'] font-bold text-white uppercase">{match.team_a_name}</h1>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8 bg-[#0B1322] p-6 rounded-3xl border border-[#28396C] w-full">
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 w-full md:w-auto">
+            {/* Team A */}
+            <div className="flex items-center gap-3">
+              {match.team_a_logo_url && (
+                <img
+                  src={match.team_a_logo_url}
+                  alt={match.team_a_name}
+                  className="w-10 h-10 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#28396C] shrink-0"
+                />
+              )}
+              <h1 className="text-xl sm:text-3xl font-['Barlow_Condensed'] font-bold text-white uppercase tracking-tight truncate max-w-[120px] sm:max-w-none">
+                {match.team_a_name}
+              </h1>
             </div>
-            <div className="text-[#B5E18B] font-black italic text-xl">VS</div>
-            <div className="flex items-center gap-4">
-              <h1 className="text-3xl font-['Barlow_Condensed'] font-bold text-white uppercase">{match.team_b_name}</h1>
-              {match.team_b_logo_url && <img src={match.team_b_logo_url} alt={match.team_b_name} className="w-16 h-16 rounded-full object-cover border-2 border-[#28396C]" />}
+            
+            {/* VS Badge */}
+            <div className="text-[#B5E18B] font-black italic text-sm sm:text-lg px-2.5 py-1 bg-[#1A253F] rounded-lg border border-[#28396C]/50 shadow-[0_0_10px_rgba(181,225,139,0.05)]">
+              VS
+            </div>
+            
+            {/* Team B */}
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl sm:text-3xl font-['Barlow_Condensed'] font-bold text-white uppercase tracking-tight truncate max-w-[120px] sm:max-w-none">
+                {match.team_b_name}
+              </h1>
+              {match.team_b_logo_url && (
+                <img
+                  src={match.team_b_logo_url}
+                  alt={match.team_b_name}
+                  className="w-10 h-10 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#28396C] shrink-0"
+                />
+              )}
             </div>
           </div>
-          <div className="flex-1 flex justify-end">
-            <span className="text-xs px-3 py-1 rounded-full bg-[#1A253F] text-[#B5E18B] font-black uppercase tracking-widest border border-[#28396C]">{match.status}</span>
+          
+          {/* Status Badge */}
+          <div className="w-full md:w-auto flex justify-center md:justify-end shrink-0">
+            <span className="text-[10px] sm:text-xs px-4 py-1.5 rounded-full bg-[#1A253F] text-[#B5E18B] font-black uppercase tracking-[0.15em] border border-[#B5E18B]/30 shadow-[0_0_12px_rgba(181,225,139,0.15)]">
+              {match.status}
+            </span>
           </div>
         </div>
 

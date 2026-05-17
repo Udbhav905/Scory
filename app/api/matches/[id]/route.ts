@@ -11,6 +11,9 @@ export async function GET(
     return NextResponse.json({ error: "Match ID required" }, { status: 400 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const isFull = searchParams.get("full") === "true";
+
   // Get the current session (optional)
   const session = await auth();
   let userId = null;
@@ -39,6 +42,32 @@ export async function GET(
 
     // Remove internal fields before sending
     delete match.tournament_owner_id;
+
+    if (isFull) {
+      // Fetch players, innings, and ball events in parallel on the server
+      const [playersRes, inningsRes] = await Promise.all([
+        query("SELECT * FROM players WHERE match_id = $1", [matchId]),
+        query("SELECT * FROM innings WHERE match_id = $1 ORDER BY innings_number ASC", [matchId]),
+      ]);
+
+      let ballEvents: any[] = [];
+      if (inningsRes.rows.length > 0) {
+        const inningsIds = inningsRes.rows.map((inn: any) => inn.id);
+        const ballsRes = await query(
+          "SELECT * FROM ball_events WHERE innings_id = ANY($1) ORDER BY over_number, ball_number",
+          [inningsIds]
+        );
+        ballEvents = ballsRes.rows;
+      }
+
+      return NextResponse.json({
+        ...match,
+        isOwner,
+        players: playersRes.rows,
+        innings: inningsRes.rows,
+        ballEvents,
+      });
+    }
 
     return NextResponse.json({ ...match, isOwner });
   } catch (err) {

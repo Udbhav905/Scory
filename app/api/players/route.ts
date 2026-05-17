@@ -28,12 +28,16 @@ export async function POST(request: Request) {
   if (!session?.user?.email) {
     throw new Error("Unauthorized");
   }
+  
+  const userId = await getUserId(session);
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
   // Verify ownership
   const verify = await query(
     `SELECT m.id FROM matches m
      JOIN tournaments t ON m.tournament_id = t.id
-     WHERE m.id = $1 AND t.user_id = (SELECT id FROM users WHERE email = $2)`,
-    [match_id, session.user.email],
+     WHERE m.id = $1 AND t.user_id = $2`,
+    [match_id, userId],
   );
   if (verify.rows.length === 0) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
@@ -54,13 +58,17 @@ export async function PUT(request: Request) {
   if (!session?.user?.email) {
     throw new Error("Unauthorized");
   }
+
+  const userId = await getUserId(session);
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
   // Verify ownership via match->tournament->user
   const verify = await query(
     `SELECT p.id FROM players p
      JOIN matches m ON p.match_id = m.id
      JOIN tournaments t ON m.tournament_id = t.id
-     WHERE p.id = $1 AND t.user_id = (SELECT id FROM users WHERE email = $2)`,
-    [id, session.user.email],
+     WHERE p.id = $1 AND t.user_id = $2`,
+    [id, userId],
   );
   if (verify.rows.length === 0) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
@@ -78,12 +86,16 @@ export async function DELETE(request: Request) {
   if (!session?.user?.email) {
     throw new Error("Unauthorized");
   }
+
+  const userId = await getUserId(session);
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
   const verify = await query(
     `SELECT p.id FROM players p
      JOIN matches m ON p.match_id = m.id
      JOIN tournaments t ON m.tournament_id = t.id
-     WHERE p.id = $1 AND t.user_id = (SELECT id FROM users WHERE email = $2)`,
-    [id, session.user.email],
+     WHERE p.id = $1 AND t.user_id = $2`,
+    [id, userId],
   );
   if (verify.rows.length === 0) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 

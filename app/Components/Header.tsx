@@ -29,6 +29,7 @@ interface DashboardMatch {
   team_a_name: string;
   team_b_name: string;
   status: string;
+  innings?: InningsRow[];
 }
 export const dynamic = "force-dynamic";
 
@@ -103,26 +104,20 @@ export default function Header() {
 
         const matches: DashboardMatch[] = [...(data.liveMatches ?? []), ...(data.recentMatches ?? [])].slice(0, 12);
 
-        const settled = await Promise.allSettled(
-          matches.map(async (match) => {
-            const r = await fetch(`/api/innings?matchId=${match.id}`);
-            if (!r.ok) return null;
-            const innings: InningsRow[] = await r.json();
-            const score = formatScore(innings);
-            const overs = formatOvers(innings);
-            const isLive = match.status === "live" || match.status === "innings_1_complete" || match.status === "innings_2_live";
-            return {
-              id: match.id,
-              team1: match.team_a_name,
-              team2: match.team_b_name,
-              score: score ?? (isLive ? "0/0" : "Completed"),
-              overs: overs ? `${overs} ov` : "",
-              live: isLive,
-            } satisfies TickerMatch;
-          }),
-        );
-
-        const valid = settled.filter((r): r is PromiseFulfilledResult<TickerMatch | null> => r.status === "fulfilled" && r.value !== null).map((r) => r.value as TickerMatch);
+        const valid = matches.map((match) => {
+          const innings = match.innings ?? [];
+          const score = formatScore(innings);
+          const overs = formatOvers(innings);
+          const isLive = match.status === "live" || match.status === "innings_1_complete" || match.status === "innings_2_live";
+          return {
+            id: match.id,
+            team1: match.team_a_name,
+            team2: match.team_b_name,
+            score: score ?? (isLive ? "0/0" : "Completed"),
+            overs: overs ? `${overs} ov` : "",
+            live: isLive,
+          } satisfies TickerMatch;
+        });
 
         setTickerItems(valid);
       } catch {
@@ -169,10 +164,7 @@ export default function Header() {
   const displayedItems: TickerMatch[] = tickerLoading || tickerItems.length === 0 ? [] : [...tickerItems, ...tickerItems];
 
   // Navigation links (optional, uncomment if needed)
-  const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/profile", label: "Dashboard" },
-  ];
+  
 
   return (
     <>
@@ -318,17 +310,7 @@ export default function Header() {
         </div>
 
         {/* ── Mobile nav drawer ──────────────────────────────────────────────── */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-[#080a0f]/98 backdrop-blur-2xl border-b border-white/[0.05]">
-            <nav className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-0.5">
-              {navLinks.map((l) => (
-                <Link key={l.href} href={l.href} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] transition-colors duration-200 ${(l.href === "/" ? pathname === "/" : pathname.startsWith(l.href)) ? "bg-[#B5E18B]/10 text-[#B5E18B]" : "text-[#8090A4] hover:text-[#E0E8F0] hover:bg-white/5"}`}>
-                  {l.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        )}
+        
 
         {/* ── Score ticker ───────────────────────────────────────────────────── */}
         <div className="hidden sm:flex h-7 bg-[#0a0d14] border-b border-white/[0.04] items-center overflow-hidden">

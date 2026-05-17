@@ -168,42 +168,25 @@ export default function MatchAnalysisClient() {
       setLoading(true);
       setError(null);
       try {
-        // 🔥 OPTIMIZATION: Fetch basic match info, players list, and innings list in parallel!
-        const [matchRes, playersRes, inningsRes] = await Promise.all([
-          fetch(`/api/matches/${matchId}`),
-          fetch(`/api/players?matchId=${matchId}`),
-          fetch(`/api/innings?matchId=${matchId}`),
-        ]);
+        const res = await fetch(`/api/matches/${matchId}?full=true`);
+        if (!res.ok) throw new Error(`Match API returned ${res.status}`);
+        const data = await res.json();
 
-        if (!matchRes.ok) throw new Error(`Match API returned ${matchRes.status}`);
-        if (!playersRes.ok) throw new Error(`Players API returned ${playersRes.status}`);
-        if (!inningsRes.ok) throw new Error(`Innings API returned ${inningsRes.status}`);
-
-        const [matchData, playersData, inningsData] = await Promise.all([
-          matchRes.json(),
-          playersRes.json(),
-          inningsRes.json(),
-        ]);
-
-        setMatch(matchData);
-        setPlayers(playersData);
-        setAllInnings(inningsData);
+        setMatch(data);
+        setPlayers(data.players || []);
+        setAllInnings(data.innings || []);
 
         const ballsMap = new Map<number, BallEvent[]>();
-        // 🔥 OPTIMIZATION: Fetch balls scores for all innings in parallel!
-        const ballsPromises = inningsData.map(async (inn: Innings) => {
-          const ballsRes = await fetch(`/api/score?inningsId=${inn.id}`);
-          if (ballsRes.ok) {
-            const balls = await ballsRes.json();
-            return { id: inn.id, balls };
+        const ballEvents = data.ballEvents || [];
+        
+        // Group balls by innings_id
+        ballEvents.forEach((ball: BallEvent) => {
+          if (!ballsMap.has(ball.innings_id)) {
+            ballsMap.set(ball.innings_id, []);
           }
-          return { id: inn.id, balls: [] };
+          ballsMap.get(ball.innings_id)!.push(ball);
         });
 
-        const ballsResults = await Promise.all(ballsPromises);
-        ballsResults.forEach(res => {
-          ballsMap.set(res.id, res.balls);
-        });
         setBallEventsMap(ballsMap);
       } catch (err: any) {
         console.error(err);
@@ -260,6 +243,7 @@ export default function MatchAnalysisClient() {
         overs: toOvers(totalBalls),
         fours,
         sixes,
+        boundaries: fours + sixes,
         dots,
         dotPercentage,
         extras,
@@ -780,6 +764,12 @@ export default function MatchAnalysisClient() {
                         const displayA = metric.format ? metric.format(valA, h2hData.teamA) : `${valA}${metric.suffix || ""}`;
                         const displayB = metric.format && h2hData.teamB ? metric.format(valB, h2hData.teamB) : h2hData.teamB ? `${valB}${metric.suffix || ""}` : "—";
 
+                        const numA = typeof valA === "number" ? valA : parseFloat(String(valA)) || 0;
+                        const numB = typeof valB === "number" ? valB : parseFloat(String(valB)) || 0;
+                        const total = numA + numB || 1;
+                        const pctA = (numA / total) * 100;
+                        const pctB = (numB / total) * 100;
+
                         return (
                           <div key={idx} className="border-b border-[#778da9]/5 pb-4 last:border-b-0">
                             <div className="text-center text-[10px] font-black uppercase tracking-widest text-[#778da9] mb-2">
@@ -801,6 +791,13 @@ export default function MatchAnalysisClient() {
                                 <span className="text-sm font-black text-blue-400">{displayB}</span>
                               </div>
                             </div>
+                            {/* Premium Visual Combat Progress Bar */}
+                            {h2hData.teamB && (
+                              <div className="w-full h-1.5 bg-[#0d1b2a] rounded-full overflow-hidden flex mt-2.5 max-w-md mx-auto border border-white/[0.03]">
+                                <div style={{ width: `${pctA}%` }} className="h-full bg-[#B5E18B] shadow-[0_0_8px_#B5E18B]" />
+                                <div style={{ width: `${pctB}%` }} className="h-full bg-[#3b82f6] shadow-[0_0_8px_#3b82f6]" />
+                              </div>
+                            )}
                           </div>
                         );
                       })}
