@@ -5,35 +5,26 @@ interface InningsRow {
   id: number;
 }
 
-// GET matches for a tournament
+// GET matches for a tournament (Publicly accessible)
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { searchParams } = new URL(request.url);
   const tournamentId = searchParams.get("tournamentId");
   if (!tournamentId) {
     return NextResponse.json({ error: "tournamentId required" }, { status: 400 });
   }
 
-  const userId = await getUserId(session);
-  const verify = await query(
-    "SELECT id FROM tournaments WHERE id = $1 AND user_id = $2",
-    [tournamentId, userId]
-  );
-  if (verify.rows.length === 0) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  try {
+    const matches = await query(
+      `SELECT id, team_a_name, team_a_logo_url, team_b_name, team_b_logo_url, 
+              venue, match_date, total_overs, status
+       FROM matches WHERE tournament_id = $1 ORDER BY match_date ASC`,
+      [tournamentId]
+    );
+    return NextResponse.json(matches.rows);
+  } catch (err) {
+    console.error("Error fetching tournament matches:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-
-  const matches = await query(
-    `SELECT id, team_a_name, team_a_logo_url, team_b_name, team_b_logo_url, 
-            venue, match_date, total_overs, status
-     FROM matches WHERE tournament_id = $1 ORDER BY match_date ASC`,
-    [tournamentId]
-  );
-  return NextResponse.json(matches.rows);
 }
 
 // POST – create a new match

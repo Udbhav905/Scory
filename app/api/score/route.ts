@@ -4,37 +4,38 @@ import { query } from "@/app/lib/db";
 import { pusherServer } from "@/app/lib/pusher";
 
 async function updateInningsTotals(inningsId: number) {
-  // If no balls, reset all
-  const ballCount = await query("SELECT COUNT(*) as count FROM ball_events WHERE innings_id = $1", [inningsId]);
-  if (ballCount.rows[0].count === 0) {
-    await query("UPDATE innings SET total_runs = 0, total_wickets = 0, overs = 0 WHERE id = $1", [inningsId]);
+  const result = await query(
+    `SELECT 
+       COUNT(id) as total_balls,
+       COALESCE(SUM(runs + extra_runs), 0) as runs,
+       COALESCE(SUM(CASE WHEN is_wicket = TRUE THEN 1 ELSE 0 END), 0) as wickets,
+       COALESCE(SUM(CASE WHEN extra_type IS NULL OR extra_type NOT IN ('wide', 'no ball') THEN 1 ELSE 0 END), 0) as legal_deliveries
+     FROM ball_events 
+     WHERE innings_id = $1`,
+    [inningsId]
+  );
+
+  const row = result.rows[0];
+  const totalBalls = parseInt(row.total_balls, 10);
+
+  if (totalBalls === 0) {
+    await query(
+      "UPDATE innings SET total_runs = 0, total_wickets = 0, overs = 0 WHERE id = $1",
+      [inningsId]
+    );
     return;
   }
 
-  // Total runs & wickets
-  const runsRes = await query(
-    `SELECT COALESCE(SUM(runs + extra_runs), 0) as runs,
-            COALESCE(SUM(CASE WHEN is_wicket THEN 1 ELSE 0 END), 0) as wickets
-     FROM ball_events WHERE innings_id = $1`,
-    [inningsId],
-  );
-
-  // Total overs = total legal deliveries / 6
-  const oversRes = await query(
-    `SELECT COUNT(*) as legal_deliveries
-     FROM ball_events 
-     WHERE innings_id = $1 
-       AND (extra_type IS NULL OR extra_type NOT IN ('wide', 'no ball'))`,
-    [inningsId],
-  );
-  const legalDeliveries = parseInt(oversRes.rows[0].legal_deliveries, 10);
-  const overs = legalDeliveries / 6; // → e.g., 5 deliveries → 0.8333
+  const runs = parseInt(row.runs, 10);
+  const wickets = parseInt(row.wickets, 10);
+  const legalDeliveries = parseInt(row.legal_deliveries, 10);
+  const overs = legalDeliveries / 6;
 
   await query(
     `UPDATE innings 
      SET total_runs = $1, total_wickets = $2, overs = $3 
      WHERE id = $4`,
-    [runsRes.rows[0].runs, runsRes.rows[0].wickets, overs, inningsId],
+    [runs, wickets, overs, inningsId]
   );
 }
 
@@ -103,15 +104,13 @@ export async function POST(request: Request) {
 
   await updateInningsTotals(innings_id);
 
-  // Trigger Pusher event for real-time update
+  // Trigger Pusher event for real-time update asynchronously (non-blocking for ultra-fast response)
   const matchId = verify.rows[0].match_id;
-  try {
-    await pusherServer.trigger(`match-${matchId}`, "score-update", {
-      innings_id: innings_id,
-    });
-  } catch (err) {
+  pusherServer.trigger(`match-${matchId}`, "score-update", {
+    innings_id: innings_id,
+  }).catch(err => {
     console.error("Pusher trigger failed:", err);
-  }
+  });
 
   // Ensure match status is 'live' if not already
   await query("UPDATE matches SET status = 'live' WHERE id = $1 AND status != 'completed'", [matchId]);
@@ -186,15 +185,13 @@ export async function DELETE(request: Request) {
   // Update totals
   await updateInningsTotals(inningsId);
 
-  // Trigger Pusher event
+  // Trigger Pusher event asynchronously (non-blocking)
   const matchId = verify.rows[0].match_id;
-  try {
-    await pusherServer.trigger(`match-${matchId}`, "score-update", {
-      innings_id: inningsId,
-    });
-  } catch (err) {
+  pusherServer.trigger(`match-${matchId}`, "score-update", {
+    innings_id: inningsId,
+  }).catch(err => {
     console.error("Pusher trigger failed:", err);
-  }
+  });
 
   return NextResponse.json({
     message: "Last ball undone",

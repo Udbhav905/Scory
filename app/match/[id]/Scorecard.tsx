@@ -205,6 +205,7 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
   const autoCompleteRef = useRef(false);
   const autoModalRef = useRef(false);
   const justStartedRef = useRef(false);
+  const localSubmitRef = useRef(false);
   // Keep track of previous total runs for animation (for non‑owner updates)
   const prevTotalRunsRef = useRef<number>(0);
 
@@ -326,7 +327,13 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
       if (!alive) return;
       pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, { cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER! });
       ch = pusher.subscribe(`match-${matchId}`);
-      ch.bind("score-update", () => refreshData(true));
+      ch.bind("score-update", () => {
+        if (localSubmitRef.current) {
+          localSubmitRef.current = false;
+          return;
+        }
+        refreshData(true);
+      });
     })();
     return () => {
       alive = false;
@@ -437,7 +444,8 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
       if (res.ok) {
         // The animation will be triggered by the useEffect that watches currentStats.runs
         applyLocal(runs, extra, isWicket, dis ?? null, newBat ?? null, legal);
-        await refreshData(true);
+        localSubmitRef.current = true;
+        await refreshData(false);
         setShowWicket(false);
         setWkType(null);
         setDismissedId(null);
@@ -460,7 +468,8 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
       if (res.ok) {
         setLocalBowler(null);
         autoModalRef.current = false;
-        await refreshData(true);
+        localSubmitRef.current = true;
+        await refreshData(false);
       } else {
         const data = await res.json();
         alert(data.error || "Undo failed");
@@ -484,7 +493,8 @@ export default function Scorecard({ matchId, teamA, teamALogo, teamB, teamBLogo,
         autoCompleteRef.current = false;
         autoModalRef.current = false;
         justStartedRef.current = false;
-        await refreshData(true);
+        localSubmitRef.current = true;
+        await refreshData(false);
       } else {
         alert((await res.json()).error ?? "Reset failed");
       }
