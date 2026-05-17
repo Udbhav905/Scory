@@ -4,6 +4,13 @@ import { query } from "@/app/lib/db";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const searchTerm = searchParams.get("query") || "";
+  try {
+    const data = await query("SELECT * FROM matches");
+    return NextResponse.json(data.rows);
+  } catch (err:any) {
+    console.error("DB ERROR:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 
   try {
     // 1. Live matches (statuses that indicate an ongoing match)
@@ -14,7 +21,7 @@ export async function GET(request: Request) {
        WHERE m.status IN ('live', 'toss_done', 'innings_1_complete', 'innings_2_live')
        AND (m.team_a_name ILIKE $1 OR m.team_b_name ILIKE $1 OR t.name ILIKE $1 OR m.venue ILIKE $1)
        ORDER BY m.match_date DESC`,
-      [`%${searchTerm}%`]
+      [`%${searchTerm}%`],
     );
 
     // 2. Completed matches (status = 'completed')
@@ -25,7 +32,7 @@ export async function GET(request: Request) {
        WHERE m.status = 'completed'
        AND (m.team_a_name ILIKE $1 OR m.team_b_name ILIKE $1 OR t.name ILIKE $1 OR m.venue ILIKE $1)
        ORDER BY m.match_date DESC LIMIT 10`,
-      [`%${searchTerm}%`]
+      [`%${searchTerm}%`],
     );
 
     // 3. **ALL tournaments** – removed the status filter
@@ -33,7 +40,7 @@ export async function GET(request: Request) {
       `SELECT * FROM tournaments 
        WHERE (name ILIKE $1 OR venue ILIKE $1)
        ORDER BY created_at DESC`,
-      [`%${searchTerm}%`]
+      [`%${searchTerm}%`],
     );
 
     return NextResponse.json({
@@ -41,7 +48,7 @@ export async function GET(request: Request) {
       recentMatches: recentMatches.rows,
       tournaments: tournaments.rows,
     });
-  } catch (err) {
+  } catch (err:any) {
     console.error(err);
     return NextResponse.json({ error: "Failed to fetch dashboard data" }, { status: 500 });
   }
