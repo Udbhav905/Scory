@@ -9,7 +9,7 @@
 We have deployed Scory on multiple platforms for high availability and performance testing. You can check out the live application here:
 
 - **Vercel Deployment:** [https://scory-one.vercel.app/](https://scory-one.vercel.app/)
-- **Azure Web App Deployment:** [https://scory-b9cjgmf6dbb0cefu.koreacentral-01.azurewebsites.net](https://scory-01.azurewebsites.net)(currently azure webapp server is stoped! )
+- **Azure Web App Deployment:** [https://scory.azurewebsites.net](https://scory-b9cjgmf6dbb0cefu.koreacentral-01.azurewebsites.net)(currently azure webapp server is stoped! )
 
 ## 📸 Screenshots
 
