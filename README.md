@@ -1,6 +1,6 @@
 # Scory - Live Cricket Scores & Tournaments
 
-![Scory Banner](https://via.placeholder.com/1200x400.png?text=Scory+-+Live+Cricket+Scores)
+***SCORY***
 
 **Scory** is a modern, real-time web application built with Next.js that allows users to follow live cricket action, view completed matches, and explore tournaments. Get comprehensive stats, in-depth analysis, and real-time updates for every match.
 
@@ -9,7 +9,7 @@
 We have deployed Scory on multiple platforms for high availability and performance testing. You can check out the live application here:
 
 - **Vercel Deployment:** [https://scory-one.vercel.app/](https://scory-one.vercel.app/)
-- **Azure Web App Deployment:** [https://scory-b9cjgmf6dbb0cefu.koreacentral-01.azurewebsites.net](https://scory-b9cjgmf6dbb0cefu.koreacentral-01.azurewebsites.net)
+- **Azure Web App Deployment:** [https://scory-b9cjgmf6dbb0cefu.koreacentral-01.azurewebsites.net](https://scory-b9cjgmf6dbb0cefu.koreacentral-01.azurewebsites.net)(currently azure webapp server is stoped! )
 
 ## 📸 Screenshots
 
@@ -19,7 +19,7 @@ Here’s a glimpse of the application interface:
 |---------------|-------------------|
 | ![Match Summary](./public/ref_img1.png) | ![Scorecard Details](./public/ref_img2.png) |
 
-*Make sure the image files `ref_img1.png` and `ref_img2.png` are placed inside the `public/` directory at the root of the project.*
+
 
 ## 🏗️ Architecture & Deployment
 
@@ -48,7 +48,7 @@ To get a local copy up and running, follow these simple steps.
    ```bash
    git clone https://github.com/your_username/scory.git
    cd scory
-   
+
 2. **Install NPM packages**
    ```bash
    npm install
