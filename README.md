@@ -1,7 +1,5 @@
 # Scory - Live Cricket Scores & Tournaments
 
-***SCORY***
-
 **Scory** is a modern, real-time web application built with Next.js that allows users to follow live cricket action, view completed matches, and explore tournaments. Get comprehensive stats, in-depth analysis, and real-time updates for every match.
 
 ## 🚀 Live Demos
