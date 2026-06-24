@@ -1,4 +1,4 @@
-const CACHE_NAME = "scory-cache-v1";
+const CACHE_NAME = "scory-cache-v2";
 const ASSETS_TO_CACHE = [
   "/",
   "/favicon.ico",
@@ -34,18 +34,13 @@ self.addEventListener("activate", (event) => {
 
 // Fetch Event
 self.addEventListener("fetch", (event) => {
-  // Only handle GET requests and local/http/https protocols (ignore chrome-extension, etc.)
-  if (event.request.method !== "GET" || !event.request.url.startsWith(self.location.origin)) {
+  // 1. Bypass API calls entirely so the browser handles them natively
+  if (event.request.url.includes("/api/")) {
     return;
   }
 
-  // Handle API calls - always Network First
-  if (event.request.url.includes("/api/")) {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match(event.request);
-      })
-    );
+  // 2. Only handle GET requests and local/http/https protocols
+  if (event.request.method !== "GET" || !event.request.url.startsWith(self.location.origin)) {
     return;
   }
 
