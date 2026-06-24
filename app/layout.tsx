@@ -1,12 +1,20 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "./Components/Header";
 import Providers from "./Providers";
+import SplashScreen from "./Components/SplashScreen";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-<html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}></html>
+
+export const viewport: Viewport = {
+  themeColor: "#0d1b2a",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "https://scory-one.vercel.app/"),
@@ -18,6 +26,16 @@ export const metadata: Metadata = {
   keywords: ["cricket", "live scores", "match analysis", "scorecard", "tournament", "cricket stats"],
   authors: [{ name: "UDP" }],
   creator: "UDP",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Scory",
+  },
   openGraph: {
     type: "website",
     locale: "en_IN",
@@ -48,6 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <Providers>
+          <SplashScreen />
           <Header />
           {children}
         </Providers>
